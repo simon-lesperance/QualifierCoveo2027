@@ -31,3 +31,7 @@ wandb/
 .idea/
 .vscode/
 .DS_Store
+
+# Native libraries built for the bot
+*.so
+*.dll

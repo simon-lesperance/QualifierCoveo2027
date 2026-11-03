@@ -2,3 +2,4 @@
 -r starterkit/python/requirements.txt
 numpy==2.5.4
 numba==0.68.1
+ziglang==0.16.0
