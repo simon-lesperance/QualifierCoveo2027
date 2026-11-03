@@ -1,0 +1,33 @@
+# Local game server. The binary is over GitHub's 100 MB limit, and teammates
+# can download their own build from the dashboard.
+localRunner/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Secrets. The launcher's own login is stored in ~/.blitz, outside this repo.
+.env*
+*.pem
+*.key
+credentials.json
+
+# Launcher output (anchored rules also live in starterkit/python/.gitignore)
+blitz-games/
+game.json
+game_logs.txt
+error.log
+launcher.log
+
+# Bot upload archives and training output
+*.zip
+checkpoints/
+runs/
+wandb/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
