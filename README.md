@@ -9,7 +9,7 @@ Bot for the Dinosaur Extinction challenge, a solo high-score game. The team's sc
 | `starterkit/` | Coveo's starter kit. `game_message.py` and `application.py` should not be edited |
 | `sim/` | C++ port of the game engine, for fast search and training |
 | `tools/` | Local game runner, simulator build and parity check, upload packaging |
-| `experiments/` | Bots used for testing. `probe_bot` measures the server |
+| `experiments/` | Bots used for testing: `probe_bot` measures the server, `chaos_bot` and `replay_bot` check the simulator |
 | `localRunner/` | Not in git. Download the launcher from the dashboard and unpack it here |
 
 ## Setup
@@ -60,6 +60,22 @@ Check the simulator against the real engine, tick by tick. It needs `localRunner
 
 ```bash
 .venv/Scripts/python.exe tools/check_sim.py --games 12
+```
+
+Search known seeds for strong plans, written to `runs/plans/`:
+
+```bash
+.venv/Scripts/python.exe tools/estimate_maps.py --width 200 --seeds 4
+```
+
+Check a plan on the real engine, and see how it scores:
+
+```bash
+.venv/Scripts/python.exe tools/verify_plan.py runs/plans/<plan>.txt <biome> <seed>
+```
+
+```bash
+.venv/Scripts/python.exe tools/analyze_plan.py runs/plans/<plan>.txt <biome> <seed>
 ```
 
 Measure simulator speed:

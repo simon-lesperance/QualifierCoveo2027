@@ -14,7 +14,7 @@ SIM = ROOT / "sim"
 BUILD = ROOT / "build"
 
 ENGINE_SOURCES = ["rng.cpp", "terrain.cpp", "game.cpp"]
-PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp"}
+PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim_search": "search_main.cpp"}
 
 # -ffp-contract=off keeps floating-point results identical to the JS engine's.
 FLAGS = ["-std=c++20", "-O2", "-DNDEBUG", "-ffp-contract=off", "-fno-sanitize=undefined", "-Wno-nullability-completeness"]

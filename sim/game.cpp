@@ -393,7 +393,7 @@ void Game::resolve_meteor_impacts(int turn) {
         int center_column = landing[i].x;
         for (int d = 0; d < dino_count_; d++) {
             Dino& dino = dinos_[d];
-            if (!dino.alive) continue;
+            if (!dino.alive || (spawn_shield_ && dino.spawn_turn == turn)) continue;
             int row = row_of(dino.cell) - center_row;
             int column = column_of(dino.cell) - center_column;
             if (row * row + column * column <= kRadiusSquared) eliminate(dino, turn, Cause::Meteor);

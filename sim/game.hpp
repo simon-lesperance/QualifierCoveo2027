@@ -59,6 +59,10 @@ public:
     // Returns false if the action was rejected.
     bool step(int turn, Action action);
 
+    // Not in the real game. Lets a search measure what foreseeing spawns is worth:
+    // a dinosaur survives any impact on the tick it spawns.
+    void set_spawn_shield(bool on) { spawn_shield_ = on; }
+
     int score() const { return score_; }
     int origin_y() const { return origin_y_; }
     int total_kills() const { return total_kills_; }
@@ -115,6 +119,7 @@ private:
     int32_t kill_base_ = 0;
     int8_t kills_ = 0;
     bool map_clear_last_tick_ = false;
+    bool spawn_shield_ = false;
 
     int8_t dino_count_ = 0;
     int8_t meteor_count_ = 0;

@@ -33,7 +33,7 @@ def prepare_bot(folder: Path) -> None:
     shutil.copy(BOT / "bot.py", folder / "bot.py")
 
 
-def play(bot_dir: Path, biome: str, seed: str, record: Path, actions: Path) -> None:
+def play(bot_dir: Path, biome: str, seed: str, record: Path, actions: Path, extra_env: dict | None = None) -> None:
     server = subprocess.Popen(
         [
             str(LAUNCHER),
@@ -49,7 +49,7 @@ def play(bot_dir: Path, biome: str, seed: str, record: Path, actions: Path) -> N
         stderr=subprocess.DEVNULL,
     )
     time.sleep(1.0)
-    env = {**os.environ, "ACTIONS_LOG": str(actions), "CHAOS_SEED": seed}
+    env = {**os.environ, "ACTIONS_LOG": str(actions), "CHAOS_SEED": seed, **(extra_env or {})}
     subprocess.run(
         [sys.executable, "application.py"],
         cwd=bot_dir,
