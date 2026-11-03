@@ -1,0 +1,4 @@
+# Local development and experiments. The uploaded bot has its own requirements.txt.
+-r starterkit/python/requirements.txt
+numpy==2.5.4
+numba==0.68.1
