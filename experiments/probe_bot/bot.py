@@ -87,8 +87,9 @@ def probe_processes() -> None:
 
     # Plain interpreters rather than multiprocessing, which would re-import this
     # module in each worker and run these probes again. Ten times the loop above,
-    # so interpreter startup does not dominate the timing.
-    code = "total = 0\nfor i in range(20_000_000): total += i & 3"
+    # so interpreter startup does not dominate the timing. The loop needs a function
+    # to match: globals run far slower than locals.
+    code = "def f():\n    total = 0\n    for i in range(20_000_000): total += i & 3\nf()"
     for workers in (2, 4):
         start = time.perf_counter()
         children = [subprocess.Popen([sys.executable, "-I", "-c", code]) for _ in range(workers)]
