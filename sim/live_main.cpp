@@ -66,6 +66,9 @@ int main(int argc, char** argv) {
         else if (name == "--first") first = value;
         else if (name == "--value-weight") config.value_weight = std::atof(argv[i + 1]);
         else if (name == "--net-cost") config.net_cost = value;
+        else if (name == "--aim-current") config.aim_current = value != 0;
+        else if (name == "--aim-predicted") config.aim_predicted = value != 0;
+        else if (name == "--volcano-near") config.volcano_near_dinos = value != 0;
         else if (name == "--biome") biome_filter = argv[i + 1];
         else if (name == "--net") {
             if (!net.load(argv[i + 1])) {

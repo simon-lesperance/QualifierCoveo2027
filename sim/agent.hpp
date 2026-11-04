@@ -23,6 +23,12 @@ struct AgentConfig {
     int mcts_depth = 3;          // Decisions per iteration before the rollout.
     double widening = 3;         // A node may try 1 + widening * sqrt(visits) actions.
 
+    // Where to aim. A meteor lands kMeteorDelay ticks later, so targets can be placed
+    // around where dinosaurs are predicted to be then, as well as where they are now.
+    bool aim_current = true;
+    bool aim_predicted = false;
+    bool volcano_near_dinos = false;  // Rank volcanoes by distance to dinosaurs, not by map order.
+
     // Scores what each MCTS iteration leaves behind, on top of the points it earned.
     const ValueNet* net = nullptr;
     double value_weight = 1;
