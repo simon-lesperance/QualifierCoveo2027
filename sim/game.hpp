@@ -82,6 +82,10 @@ public:
     // dinosaurs. The hidden tie-breaks come from rng_seed.
     static Game from_observation(const Observation& observation, uint32_t rng_seed);
 
+    // Removes what a live bot can't know from a copy of the true game. For
+    // experiments that measure what each hidden thing is worth.
+    void hide(bool rows, bool rng, bool waves, uint32_t rng_seed);
+
     // What the server would send at the start of `tick`.
     Observation observe(int tick) const;
 
@@ -152,6 +156,7 @@ private:
     int8_t kills_ = 0;
     bool map_clear_last_tick_ = false;
     bool spawn_shield_ = false;
+    bool waves_enabled_ = true;
 
     int8_t dino_count_ = 0;
     int8_t meteor_count_ = 0;

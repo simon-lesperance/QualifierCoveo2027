@@ -257,7 +257,7 @@ Game::Game(const Terrain& terrain, std::string_view seed) : terrain_(&terrain), 
 Game Game::from_observation(const Observation& observation, uint32_t rng_seed) {
     Game game(rng_seed);
     game.origin_y_ = static_cast<int16_t>(observation.origin_y);
-    game.map_clear_last_tick_ = false;
+    game.waves_enabled_ = false;
     std::memcpy(game.elevation_, observation.elevation, kCells);
     std::memcpy(game.flags_, observation.flags, kCells);
     for (int cell = 0; cell < kCells; cell++) game.corpses_[cell] = observation.corpses[cell] != 0;
@@ -279,6 +279,12 @@ Game Game::from_observation(const Observation& observation, uint32_t rng_seed) {
         game.volcanoes_[i] = {static_cast<int16_t>(observation.volcano_x[i]), static_cast<int16_t>(observation.volcano_y[i])};
     }
     return game;
+}
+
+void Game::hide(bool rows, bool rng, bool waves, uint32_t rng_seed) {
+    if (rows) terrain_ = nullptr;
+    if (rng) rng_ = Arc4(rng_seed);
+    if (waves) waves_enabled_ = false;
 }
 
 Observation Game::observe(int tick) const {
@@ -363,7 +369,7 @@ void Game::compact() {
 }
 
 void Game::maybe_spawn_wave(int turn) {
-    if (terrain_ == nullptr) return;  // Planning copies never imagine a wave.
+    if (!waves_enabled_) return;  // Planning copies never imagine a wave.
     if (map_clear_last_tick_) {
         map_clear_last_tick_ = false;
         spawn_wave(turn);

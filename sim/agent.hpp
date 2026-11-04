@@ -14,6 +14,13 @@ struct AgentConfig {
     int horizon = kMeteorDelay;  // Ticks rolled out after each action, so in-flight meteors land.
     int volcanoes = 6;
     int samples = 1;             // Independent guesses at the hidden RNG, which then vote.
+
+    // Experiments only: plan with information a live bot can't have.
+    bool reveal_rows = false;
+    bool reveal_rng = false;
+    bool reveal_waves = false;   // Without reveal_rng, this simulates waves at guessed positions.
+    bool shield = false;         // Plans can't count on spawn-tick kills.
+    bool grid = false;           // Also consider empty ground, to meet a wave before it spawns.
 };
 
 // Plans from what the server sends: no seed, no future rows, no knowledge of spawns.
@@ -21,7 +28,7 @@ class Agent {
 public:
     explicit Agent(AgentConfig config) : config_(config) {}
 
-    Action act(const Observation& observation);
+    Action act(const Observation& observation, const Game* truth = nullptr);
 
     void set_time_budget(double ms) { config_.time_budget_ms = ms; }
     int last_simulated() const { return last_simulated_; }
