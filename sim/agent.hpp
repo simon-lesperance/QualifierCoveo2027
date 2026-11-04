@@ -44,6 +44,10 @@ public:
     Action act(const Observation& observation, const Game* truth = nullptr);
 
     void set_time_budget(double ms) { config_.time_budget_ms = ms; }
+    void set_net(const ValueNet* net, double weight) {
+        config_.net = net;
+        config_.value_weight = weight;
+    }
     int last_simulated() const { return last_simulated_; }
 
 private:
