@@ -408,6 +408,15 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             budget -= config_.net_cost;
         }
         if (config_.pocket_weight > 0) reward += config_.pocket_weight * pocket_value(game, config_.pocket_limit);
+        if (!flood_bonus_.empty()) {
+            for (int i = 0; i < path_length; i++) {
+                const Action& taken = tree[path_node[i]].edges[path_edge[i]].action;
+                if (taken.type != Action::Type::TriggerVolcano) continue;
+                for (size_t j = 0; j < ranked_volcanoes_.size(); j++) {
+                    if (ranked_volcanoes_[j].x == taken.x && ranked_volcanoes_[j].y == taken.y) reward += flood_bonus_[j];
+                }
+            }
+        }
         lowest_reward = std::min(lowest_reward, reward);
         highest_reward = std::max(highest_reward, reward);
         tree[0].visits++;
@@ -449,27 +458,55 @@ double volcano_outlook(Game game, int tick, const Action& first, int lookahead, 
     return samples > 0 ? sum / samples : 0;
 }
 
-void Agent::rank_volcanoes(const Game& root, int tick) {
+// Returns the lava-only ticks it simulated.
+int Agent::rank_volcanoes(const Game& root, int tick) {
+    constexpr int kStride = 5;
     ranked_volcanoes_.clear();
+    flood_bonus_.clear();
     Game bare = root;
     bare.clear_dinosaurs();
-    std::vector<std::pair<int, Action>> ranked;
+    int simulated = 0;
+    int ticks = std::max(config_.volcano_rank_ticks, config_.flood_weight > 0 ? config_.volcano_lookahead : 0);
+
+    struct Flood {
+        double pockets = 0;  // Pocket value summed over the samples.
+        int spawn = kCells;  // Spawn tiles left after volcano_rank_ticks.
+    };
+    auto flood = [&](Game game, const Action& first) {
+        Flood result;
+        game.step(tick, first);
+        int last = std::min(kMaxTicks, tick + ticks);
+        for (int future = tick + 1; future <= last; future++) {
+            game.step(future, Action{});
+            int elapsed = future - tick;
+            if (config_.flood_weight > 0 && elapsed % kStride == 0 && elapsed >= 2 * kStride) {
+                result.pockets += pocket_value(game, config_.pocket_limit);
+            }
+            if (elapsed == config_.volcano_rank_ticks) result.spawn = game.spawn_tiles();
+        }
+        simulated += last - tick + 1;
+        return result;
+    };
+
+    double without = config_.flood_weight > 0 ? flood(bare, Action{}).pockets : 0;
+    std::vector<std::pair<Flood, Action>> ranked;
     for (int cell = 0; cell < kCells; cell++) {
         if (!(bare.flags(cell) & kMountain)) continue;
         Action candidate;
         candidate.type = Action::Type::TriggerVolcano;
         candidate.x = cell % kWidth;
         candidate.y = cell / kWidth + bare.origin_y();
-        Game game = bare;
-        game.step(tick, candidate);
-        int last = std::min(kMaxTicks, tick + config_.volcano_rank_ticks);
-        for (int future = tick + 1; future <= last; future++) game.step(future, Action{});
-        ranked.push_back({game.spawn_tiles(), candidate});
+        ranked.push_back({flood(bare, candidate), candidate});
     }
-    std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) {
+        if (a.first.pockets != b.first.pockets) return a.first.pockets > b.first.pockets;
+        return a.first.spawn < b.first.spawn;
+    });
     for (int i = 0; i < std::min<int>(config_.volcanoes, static_cast<int>(ranked.size())); i++) {
         ranked_volcanoes_.push_back(ranked[i].second);
+        flood_bonus_.push_back(config_.flood_weight * std::max(0.0, ranked[i].first.pockets - without));
     }
+    return simulated;
 }
 
 bool Agent::pick_volcano(const Game& root, int tick, Action& action) {
@@ -518,8 +555,13 @@ Action Agent::act(const Observation& observation, const Game* truth) {
 
     double deadline = config_.time_budget_ms > 0 ? now_ms() + config_.time_budget_ms : 0;
     ranked_volcanoes_.clear();
-    if (config_.volcano_rank && root.volcano_count() == 0) rank_volcanoes(root, observation.tick);
-    if (config_.mcts) return search_mcts(root, observation.tick, config_.sim_budget, deadline).action;
+    flood_bonus_.clear();
+    int budget = config_.sim_budget;
+    if (config_.volcano_rank && root.volcano_count() == 0) {
+        constexpr int kLavaTicksPerTick = 3;  // Without dinosaurs a tick is much cheaper.
+        budget -= rank_volcanoes(root, observation.tick) / kLavaTicksPerTick;
+    }
+    if (config_.mcts) return search_mcts(root, observation.tick, budget, deadline).action;
     if (config_.samples <= 1) return search(root, observation.tick, config_.sim_budget, deadline).action;
 
     // Each sample guesses the hidden tie-breaks differently, and the best-backed move wins.

@@ -56,6 +56,10 @@ struct AgentConfig {
     bool volcano_rank = false;
     int volcano_rank_ticks = 30;
 
+    // Credits a volcano with what its flood could earn beyond the search's view: this
+    // share of the pocket value summed over volcano_lookahead ticks of lava alone.
+    double flood_weight = 0;
+
     // Experiments only: plan with information a live bot can't have.
     bool reveal_rows = false;
     bool reveal_rng = false;
@@ -82,6 +86,7 @@ public:
     }
     void set_policy(PolicyNet* policy) { config_.policy = policy; }
     void set_volcano_rank(bool on) { config_.volcano_rank = on; }
+    void set_flood_weight(double weight) { config_.flood_weight = weight; }
     void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {
         config_.plan_waves = true;
         config_.pocket_limit = pocket_limit;
@@ -104,7 +109,7 @@ private:
     };
 
     bool pick_volcano(const Game& root, int tick, Action& action);
-    void rank_volcanoes(const Game& root, int tick);
+    int rank_volcanoes(const Game& root, int tick);
     Choice search(const Game& root, int tick, int budget, double deadline_ms);
     Choice search_mcts(const Game& root, int tick, int budget, double deadline_ms);
 
@@ -112,6 +117,7 @@ private:
     int last_simulated_ = 0;
     int highest_id_ = 0;
     std::vector<Action> ranked_volcanoes_;
+    std::vector<double> flood_bonus_;  // Parallel to ranked_volcanoes_.
     std::vector<RootVisit> root_visits_;
 };
 

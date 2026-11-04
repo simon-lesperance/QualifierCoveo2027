@@ -28,13 +28,14 @@ struct Result {
 };
 
 // log_folder, if set, gets one csv per game: tick, score, kills, alive, lava tiles, spawn tiles.
+std::string rng_tag;  // Keeps a seed's map but changes its dice, to separate the two.
 int frame_every = 0;
 int frame_first = 0;
 int frame_last = 0;
 
 Result play(const char* biome, const std::string& seed, const sim::AgentConfig& config, const std::string& log_folder) {
     sim::Terrain terrain(seed, biome);
-    sim::Game game(terrain, seed);
+    sim::Game game(terrain, seed + rng_tag);
     sim::Agent agent(config);
     bool experiment = config.reveal_rows || config.reveal_rng || config.reveal_waves;
     int last_id = 0;
@@ -110,6 +111,7 @@ int main(int argc, char** argv) {
         else if (name == "--volcano-plan") config.volcano_plan = value != 0;
         else if (name == "--volcano-rank") config.volcano_rank = value != 0;
         else if (name == "--volcano-rank-ticks") config.volcano_rank_ticks = value;
+        else if (name == "--flood-weight") config.flood_weight = std::atof(argv[i + 1]);
         else if (name == "--volcano-lookahead") config.volcano_lookahead = value;
         else if (name == "--volcano-threshold") config.volcano_threshold = std::atof(argv[i + 1]);
         else if (name == "--pocket-weight") config.pocket_weight = std::atof(argv[i + 1]);
@@ -119,6 +121,7 @@ int main(int argc, char** argv) {
         else if (name == "--prior-floor") config.prior_floor = std::atof(argv[i + 1]);
         else if (name == "--policy") policy_path = argv[i + 1];
         else if (name == "--log") log_folder = argv[i + 1];
+        else if (name == "--rng-tag") rng_tag = argv[i + 1];
         else if (name == "--frame-every") frame_every = value;
         else if (name == "--frame-first") frame_first = value;
         else if (name == "--frame-last") frame_last = value;
