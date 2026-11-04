@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "game.hpp"
@@ -71,6 +72,15 @@ struct AgentConfig {
 // Average points a meteor on a new wave could expect over the next `lookahead` ticks,
 // after playing `first`, with lava alone. Dinosaurs are removed from a copy of the game.
 double volcano_outlook(Game game, int tick, const Action& first, int lookahead, int limit);
+
+// The same, for a plan of (ticks from now, action) pairs. `slope` adds that many points
+// for every tile taken off the spawn area, which gives a greedy search a direction to
+// follow while the pocket value is still zero.
+double flood_outlook(Game game, int tick, const std::vector<std::pair<int, Action>>& plan, int lookahead, int limit,
+                     double slope = 0);
+
+// The tile whose blast covers the most spawn tiles, and how many there are of each.
+int best_pocket_tile(const Game& game, int& size, int& covered);
 
 // Plans from what the server sends: no seed, no future rows, no knowledge of spawns.
 class Agent {

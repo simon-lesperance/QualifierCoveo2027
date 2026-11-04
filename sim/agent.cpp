@@ -442,6 +442,43 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
     return best;
 }
 
+double flood_outlook(Game game, int tick, const std::vector<std::pair<int, Action>>& plan, int lookahead, int limit,
+                     double slope) {
+    constexpr int kStride = 5;
+    double sum = 0;
+    int samples = 0;
+    int last = std::min(kMaxTicks, tick + lookahead);
+    for (int future = tick; future <= last; future++) {
+        int elapsed = future - tick;
+        Action action;
+        for (const auto& step : plan) {
+            if (step.first == elapsed) action = step.second;
+        }
+        game.step(future, action);
+        if (elapsed % kStride == 0 && elapsed >= 2 * kStride) {
+            sum += pocket_value(game, limit);
+            if (slope > 0) sum += slope * (kCells - game.spawn_tiles());
+            samples++;
+        }
+    }
+    return samples > 0 ? sum / samples : 0;
+}
+
+int best_pocket_tile(const Game& game, int& size, int& covered) {
+    uint8_t mask[kCells];
+    size = game.spawn_mask(mask);
+    covered = 0;
+    int best = 0;
+    for (int cell = 0; cell < kCells; cell++) {
+        int count = pocket_cover(mask, cell);
+        if (count > covered) {
+            covered = count;
+            best = cell;
+        }
+    }
+    return best;
+}
+
 double volcano_outlook(Game game, int tick, const Action& first, int lookahead, int limit) {
     constexpr int kStride = 5;
     game.step(tick, first);
