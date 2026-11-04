@@ -33,24 +33,24 @@ int main(int argc, char** argv) {
     }
     int32_t count = 0;
     std::fread(&count, sizeof(count), 1, file);
-    std::vector<uint8_t> features(count * sim::kPolicyBytes);
+    std::vector<uint8_t> features(count * sim::kFeatureBytes);
     std::vector<float> expected(count);
     for (int i = 0; i < count; i++) {
-        std::fread(features.data() + i * sim::kPolicyBytes, 1, sim::kPolicyBytes, file);
+        std::fread(features.data() + i * sim::kFeatureBytes, 1, sim::kFeatureBytes, file);
         std::fread(&expected[i], sizeof(float), 1, file);
     }
     std::fclose(file);
 
     float worst = 0;
     for (int i = 0; i < count; i++) {
-        worst = std::max(worst, std::fabs(net.evaluate(features.data() + i * sim::kPolicyBytes) - expected[i]));
+        worst = std::max(worst, std::fabs(net.evaluate(features.data() + i * sim::kFeatureBytes) - expected[i]));
     }
     std::printf("%d samples, worst difference from PyTorch %.7f\n", count, worst);
 
     constexpr int kRepeats = 200000;
     volatile float sink = 0;
     auto start = std::chrono::steady_clock::now();
-    for (int i = 0; i < kRepeats; i++) sink = net.evaluate(features.data() + (i % count) * sim::kPolicyBytes);
+    for (int i = 0; i < kRepeats; i++) sink = net.evaluate(features.data() + (i % count) * sim::kFeatureBytes);
     double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     std::printf("%.2f us per evaluation\n", seconds / kRepeats * 1e6);
     (void)sink;

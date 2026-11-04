@@ -401,8 +401,8 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         if (config_.net != nullptr) {
             constexpr double kWindow = 100;  // The net predicts points over this many ticks.
             int next_tick = last + 1;
-            uint8_t features[kPolicyBytes];
-            encode_policy_features(game, next_tick, features);
+            uint8_t features[kFeatureBytes];
+            encode_features(game, next_tick, features);
             double remaining = std::min(1.0, (kMaxTicks + 1 - next_tick) / kWindow);
             reward += config_.value_weight * 1000 * remaining * config_.net->evaluate(features);
             budget -= config_.net_cost;

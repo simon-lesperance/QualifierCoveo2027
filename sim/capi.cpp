@@ -44,6 +44,10 @@ SIM_EXPORT void sim_agent_set_waves(void* agent, int pocket_limit, int pocket_ta
     static_cast<sim::Agent*>(agent)->set_waves(pocket_limit, pocket_targets, pocket_weight);
 }
 
+SIM_EXPORT void sim_agent_set_volcano_rank(void* agent, int on) {
+    static_cast<sim::Agent*>(agent)->set_volcano_rank(on != 0);
+}
+
 // Writes the chosen action: type 0 none, 1 meteor, 2 volcano.
 SIM_EXPORT void sim_agent_act(void* agent, const sim::Observation* observation, double time_ms, int* type, int* x, int* y) {
     auto* instance = static_cast<sim::Agent*>(agent);

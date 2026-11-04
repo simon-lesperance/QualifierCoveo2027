@@ -81,6 +81,7 @@ public:
         config_.value_weight = weight;
     }
     void set_policy(PolicyNet* policy) { config_.policy = policy; }
+    void set_volcano_rank(bool on) { config_.volcano_rank = on; }
     void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {
         config_.plan_waves = true;
         config_.pocket_limit = pocket_limit;

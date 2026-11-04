@@ -65,6 +65,8 @@ def load_library() -> ctypes.CDLL:
     ]
     library.sim_agent_load_net.restype = ctypes.c_int
     library.sim_agent_load_net.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_double]
+    library.sim_agent_set_volcano_rank.restype = None
+    library.sim_agent_set_volcano_rank.argtypes = [ctypes.c_void_p, ctypes.c_int]
     library.sim_agent_set_waves.restype = None
     library.sim_agent_set_waves.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_double]
     library.sim_agent_last_simulated.restype = ctypes.c_int
@@ -84,6 +86,7 @@ class Bot:
         if not LIBRARY.sim_agent_load_net(self.agent, net_path.encode(), VALUE_WEIGHT):
             print("Could not load the value network, playing without it", flush=True)
         LIBRARY.sim_agent_set_waves(self.agent, POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT)
+        LIBRARY.sim_agent_set_volcano_rank(self.agent, 1)
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []
