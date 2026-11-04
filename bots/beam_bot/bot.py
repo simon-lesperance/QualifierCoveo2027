@@ -22,7 +22,7 @@ SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus
 
 # The limit is 150 ms, but even a trivial bot sees spikes of up to 65 ms.
 TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
-BEAM, RADIUS, HORIZON, VOLCANOES = 12, 3, 4, 6
+BEAM, RADIUS, HORIZON, VOLCANOES = 30, 2, 4, 6
 
 
 class Observation(ctypes.Structure):
