@@ -50,10 +50,40 @@ struct Action {
     int y = 0;  // World coordinates.
 };
 
+// What the server sends each tick, flattened so ctypes can fill it directly.
+struct Observation {
+    int32_t tick;
+    int32_t origin_y;
+    int32_t dino_count;
+    int32_t dino_id[kDinoCap];
+    int32_t dino_species[kDinoCap];
+    int32_t dino_x[kDinoCap];
+    int32_t dino_y[kDinoCap];  // World coordinates, as for meteors and volcanoes.
+    int32_t dino_age[kDinoCap];
+    int32_t meteor_count;
+    int32_t meteor_x[kMaxMeteors];
+    int32_t meteor_y[kMaxMeteors];
+    int32_t meteor_turns[kMaxMeteors];
+    int32_t volcano_count;
+    int32_t volcano_x[kMaxVolcanoes];
+    int32_t volcano_y[kMaxVolcanoes];
+    uint8_t elevation[kCells];
+    uint8_t flags[kCells];  // TileFlag bits.
+    uint8_t corpses[kCells];
+};
+
 // All mutable game state. Trivially copyable, so search can branch with a plain copy.
 class Game {
 public:
     Game(const Terrain& terrain, std::string_view seed);
+
+    // A game for planning, built only from what the bot can see. It has no terrain,
+    // so new rows repeat the bottom row, and no waves, so plans can't chase imagined
+    // dinosaurs. The hidden tie-breaks come from rng_seed.
+    static Game from_observation(const Observation& observation, uint32_t rng_seed);
+
+    // What the server would send at the start of `tick`.
+    Observation observe(int tick) const;
 
     // Plays turn number `turn` (1-based), as the engine's playOneTick does.
     // Returns false if the action was rejected.
@@ -81,6 +111,8 @@ public:
 
 private:
     struct TickContext;
+
+    explicit Game(uint32_t rng_seed) : terrain_(nullptr), rng_(rng_seed) {}
 
     bool apply(int turn, Action action);
     void update(int turn);

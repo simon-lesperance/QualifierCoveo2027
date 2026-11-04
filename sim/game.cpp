@@ -254,6 +254,62 @@ Game::Game(const Terrain& terrain, std::string_view seed) : terrain_(&terrain), 
     spawn_wave(0);
 }
 
+Game Game::from_observation(const Observation& observation, uint32_t rng_seed) {
+    Game game(rng_seed);
+    game.origin_y_ = static_cast<int16_t>(observation.origin_y);
+    game.map_clear_last_tick_ = false;
+    std::memcpy(game.elevation_, observation.elevation, kCells);
+    std::memcpy(game.flags_, observation.flags, kCells);
+    for (int cell = 0; cell < kCells; cell++) game.corpses_[cell] = observation.corpses[cell] != 0;
+
+    game.dino_count_ = static_cast<int8_t>(observation.dino_count);
+    for (int i = 0; i < observation.dino_count; i++) {
+        int row = observation.dino_y[i] - observation.origin_y;
+        game.dinos_[i] = {observation.dino_id[i], static_cast<int16_t>(observation.tick - 1 - observation.dino_age[i]),
+                          static_cast<int16_t>(cell_at(row, observation.dino_x[i])),
+                          static_cast<Species>(observation.dino_species[i]), true};
+    }
+    game.meteor_count_ = static_cast<int8_t>(observation.meteor_count);
+    for (int i = 0; i < observation.meteor_count; i++) {
+        game.meteors_[i] = {static_cast<int16_t>(observation.meteor_x[i]), static_cast<int16_t>(observation.meteor_y[i]),
+                            int16_t{-1}, static_cast<int8_t>(observation.meteor_turns[i])};
+    }
+    game.volcano_count_ = static_cast<int8_t>(observation.volcano_count);
+    for (int i = 0; i < observation.volcano_count; i++) {
+        game.volcanoes_[i] = {static_cast<int16_t>(observation.volcano_x[i]), static_cast<int16_t>(observation.volcano_y[i])};
+    }
+    return game;
+}
+
+Observation Game::observe(int tick) const {
+    Observation observation{};
+    observation.tick = tick;
+    observation.origin_y = origin_y_;
+    observation.dino_count = dino_count_;
+    for (int i = 0; i < dino_count_; i++) {
+        observation.dino_id[i] = dinos_[i].id;
+        observation.dino_species[i] = static_cast<int32_t>(dinos_[i].species);
+        observation.dino_x[i] = column_of(dinos_[i].cell);
+        observation.dino_y[i] = row_of(dinos_[i].cell) + origin_y_;
+        observation.dino_age[i] = tick - 1 - dinos_[i].spawn_turn;
+    }
+    observation.meteor_count = meteor_count_;
+    for (int i = 0; i < meteor_count_; i++) {
+        observation.meteor_x[i] = meteors_[i].x;
+        observation.meteor_y[i] = meteors_[i].y;
+        observation.meteor_turns[i] = meteors_[i].turns;
+    }
+    observation.volcano_count = volcano_count_;
+    for (int i = 0; i < volcano_count_; i++) {
+        observation.volcano_x[i] = volcanoes_[i].x;
+        observation.volcano_y[i] = volcanoes_[i].y;
+    }
+    std::memcpy(observation.elevation, elevation_, kCells);
+    std::memcpy(observation.flags, flags_, kCells);
+    for (int cell = 0; cell < kCells; cell++) observation.corpses[cell] = corpses_[cell];
+    return observation;
+}
+
 bool Game::step(int turn, Action action) {
     bool accepted = apply(turn, action);
     update(turn);
@@ -307,6 +363,7 @@ void Game::compact() {
 }
 
 void Game::maybe_spawn_wave(int turn) {
+    if (terrain_ == nullptr) return;  // Planning copies never imagine a wave.
     if (map_clear_last_tick_) {
         map_clear_last_tick_ = false;
         spawn_wave(turn);
@@ -465,7 +522,13 @@ void Game::frame_shift(int turn) {
     std::memmove(flags_, flags_ + kWidth, kKept);
     std::memmove(corpses_, corpses_ + kWidth, kKept);
     std::memset(corpses_ + kKept, 0, kWidth);
-    terrain_->row(origin_y_ + kHeight - 1, kWidth, elevation_ + kKept, flags_ + kKept);
+    if (terrain_ != nullptr) {
+        terrain_->row(origin_y_ + kHeight - 1, kWidth, elevation_ + kKept, flags_ + kKept);
+    } else {
+        // The new bottom row is unknown: assume it resembles the row above it.
+        std::memcpy(elevation_ + kKept, elevation_ + kKept - kWidth, kWidth);
+        for (int i = 0; i < kWidth; i++) flags_[kKept + i] = flags_[kKept - kWidth + i] & ~kLava;
+    }
 
     for (int i = 0; i < dino_count_; i++) {
         Dino& dino = dinos_[i];

@@ -15,6 +15,7 @@ MARKER = "application.py"
 MAX_BYTES = 10 * 1024 * 1024
 SKIPPED_DIRS = {"__pycache__", ".venv", "venv", "blitz-games"}
 SKIPPED_FILES = {"AGENTS.md", "game.json", "game_logs.txt", "error.log", "launcher.log"}
+SKIPPED_SUFFIXES = {".pyc", ".dll", ".pdb", ".lib", ".exp"}  # The server runs Linux.
 
 
 def files_to_pack(folder: Path) -> list[Path]:
@@ -23,7 +24,7 @@ def files_to_pack(folder: Path) -> list[Path]:
         relative = path.relative_to(folder)
         if not path.is_file() or SKIPPED_DIRS.intersection(relative.parts):
             continue
-        if path.name in SKIPPED_FILES or path.name.startswith(".env") or path.suffix == ".pyc":
+        if path.name in SKIPPED_FILES or path.name.startswith(".env") or path.suffix in SKIPPED_SUFFIXES:
             continue
         paths.append(path)
     return paths
