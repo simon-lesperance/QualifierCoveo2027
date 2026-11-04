@@ -85,4 +85,12 @@ void encode_features(const Game& game, int tick, uint8_t* out) {
     globals[4] = static_cast<uint8_t>(std::min(newest_age, 100) * 2);  // Hints at when the next wave comes.
 }
 
+void encode_policy_features(const Game& game, int tick, uint8_t* out) {
+    encode_features(game, tick, out);
+    uint8_t* extra = out + kFeatureBytes;
+    int size = game.spawn_mask(extra);
+    extra[kCells] = static_cast<uint8_t>(std::min(size, 255));
+    extra[kCells + 1] = static_cast<uint8_t>(std::clamp(game.last_wave_turn() + kWaveCadence - tick, 0, kWaveCadence) * 2);
+}
+
 }  // namespace sim

@@ -79,7 +79,7 @@ void parallel(int count, int threads, Work work) {
 }  // namespace
 
 SIM_EXPORT int vec_feature_bytes() {
-    return sim::kFeatureBytes;
+    return sim::kPolicyBytes;
 }
 
 // biome_mask has bit 0 for deep_crevasse, 1 for mountain_range, 2 for volcanic_plains.
@@ -111,7 +111,7 @@ SIM_EXPORT void vec_observe(void* handle, uint8_t* features, int32_t* ticks) {
     auto* env = static_cast<VecEnv*>(handle);
     parallel(static_cast<int>(env->slots.size()), env->threads, [=](int i) {
         const Slot& slot = env->slots[i];
-        sim::encode_features(*slot.game, slot.tick, features + i * sim::kFeatureBytes);
+        sim::encode_policy_features(*slot.game, slot.tick, features + i * sim::kPolicyBytes);
         ticks[i] = slot.tick;
     });
 }
@@ -135,7 +135,7 @@ SIM_EXPORT void vec_step(void* handle, const int32_t* actions, uint8_t* features
             games[i]++;
             restart(*env, i, games[i]);
         }
-        sim::encode_features(*slot.game, slot.tick, features + i * sim::kFeatureBytes);
+        sim::encode_policy_features(*slot.game, slot.tick, features + i * sim::kPolicyBytes);
         ticks[i] = slot.tick;
     });
 }

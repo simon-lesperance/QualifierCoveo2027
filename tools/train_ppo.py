@@ -24,11 +24,12 @@ SIZE = 20
 CELLS = SIZE * SIZE
 CHANNELS = 14
 GLOBALS = 5
-FEATURE_BYTES = CHANNELS * CELLS + GLOBALS
+BASE_BYTES = CHANNELS * CELLS + GLOBALS
+FEATURE_BYTES = BASE_BYTES + CELLS + 2
 ACTIONS = 1 + 2 * CELLS
 MOUNTAIN_CHANNEL = 2
 STEGO_ROW, STEGO_CYCLE = 13, 38
-PLANES = CHANNELS + 1 + 2 + GLOBALS + 4
+PLANES = CHANNELS + 1 + 2 + GLOBALS + 4 + 4
 
 
 class VecEnv:
@@ -64,7 +65,7 @@ def build_inputs(features: torch.Tensor, ticks: torch.Tensor) -> tuple[torch.Ten
     batch = features.shape[0]
     device = features.device
     spatial = features[:, :CHANNELS * CELLS].float().div(255).view(batch, CHANNELS, SIZE, SIZE)
-    globals_ = features[:, CHANNELS * CELLS:].float().div(255)
+    globals_ = features[:, CHANNELS * CELLS:BASE_BYTES].float().div(255)
     ticks = ticks.long()
 
     stego = torch.zeros(batch, 1, SIZE, SIZE, device=device)
@@ -82,7 +83,11 @@ def build_inputs(features: torch.Tensor, ticks: torch.Tensor) -> tuple[torch.Ten
         torch.sin(angle / STEGO_CYCLE), torch.cos(angle / STEGO_CYCLE),
     ], dim=1)
     flat = torch.cat([globals_, clock], dim=1).view(batch, GLOBALS + 4, 1, 1).expand(batch, GLOBALS + 4, SIZE, SIZE)
-    planes = torch.cat([spatial, stego, rows, columns, flat], dim=1)
+    spawn = features[:, BASE_BYTES:BASE_BYTES + CELLS].float().div(255).view(batch, 1, SIZE, SIZE)
+    extra = features[:, BASE_BYTES + CELLS:].float().div(255)
+    alive_none = (features[:, CHANNELS * CELLS + 1] == 0).float().unsqueeze(1)  # A wave comes next tick.
+    extra = torch.cat([extra, alive_none], dim=1).view(batch, 3, 1, 1).expand(batch, 3, SIZE, SIZE)
+    planes = torch.cat([spatial, stego, rows, columns, flat, spawn, extra[:, :2], extra[:, 2:]], dim=1)
 
     meteors_free = features[:, CHANNELS * CELLS + 2] < 240
     volcano_free = features[:, CHANNELS * CELLS + 3] == 0
@@ -215,8 +220,13 @@ def main() -> None:
     return_scale = state.get("scale", 1.0) if args.resume else 1.0
     if args.resume_net:
         state = torch.load(args.resume_net, map_location=device)
-        net.load_state_dict(state["net"])
-        return_scale = state["scale"]
+        weights = state["net"]
+        old = weights["head.weight"]
+        if old.shape[1] < PLANES:  # New input planes start with no effect.
+            pad = torch.zeros(old.shape[0], PLANES - old.shape[1], 3, 3, device=old.device)
+            weights["head.weight"] = torch.cat([old, pad], dim=1)
+        net.load_state_dict(weights)
+        return_scale = state.get("scale", 1.0)
     if args.scale:
         return_scale = args.scale
     print(f"{sum(p.numel() for p in net.parameters()):,} parameters", flush=True)
