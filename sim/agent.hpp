@@ -26,6 +26,15 @@ struct AgentConfig {
     int mcts_depth = 3;          // Decisions per iteration before the rollout.
     double widening = 3;         // A node may try 1 + widening * sqrt(visits) actions.
 
+    // How many fixed guesses at the hidden RNG to cycle through, keeping each node's state
+    // per guess so iterations don't replay the tree. 0 draws a fresh guess every iteration.
+    int dice = 0;
+
+    // RAVE: lines through the same action at the same tick share what they learn, whatever
+    // led there. A node leans on that for about rave_k visits. 0 turns it off.
+    double rave_k = 0;
+    bool rave_order = false;     // Also try actions with a good shared record first.
+
     // Scores what each MCTS iteration leaves behind, on top of the points it earned.
     const ValueNet* net = nullptr;
     double value_weight = 1;
@@ -126,6 +135,13 @@ private:
     AgentConfig config_;
     int last_simulated_ = 0;
     int highest_id_ = 0;
+
+    struct CachedState {
+        Game game;
+        int turn;
+        int depth;
+    };
+    std::vector<CachedState> cached_states_;  // Kept between ticks to reuse the memory.
     std::vector<Action> ranked_volcanoes_;
     std::vector<double> flood_bonus_;  // Parallel to ranked_volcanoes_.
     std::vector<RootVisit> root_visits_;

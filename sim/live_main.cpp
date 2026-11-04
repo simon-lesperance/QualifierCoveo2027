@@ -122,6 +122,9 @@ int main(int argc, char** argv) {
         else if (name == "--policy") policy_path = argv[i + 1];
         else if (name == "--log") log_folder = argv[i + 1];
         else if (name == "--rng-tag") rng_tag = argv[i + 1];
+        else if (name == "--dice") config.dice = value;
+        else if (name == "--rave-k") config.rave_k = std::atof(argv[i + 1]);
+        else if (name == "--rave-order") config.rave_order = value != 0;
         else if (name == "--frame-every") frame_every = value;
         else if (name == "--frame-first") frame_first = value;
         else if (name == "--frame-last") frame_last = value;
