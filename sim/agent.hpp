@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "game.hpp"
 #include "value_net.hpp"
@@ -50,6 +51,13 @@ public:
     }
     int last_simulated() const { return last_simulated_; }
 
+    // How the last MCTS search spread its visits over the root's actions.
+    struct RootVisit {
+        Action action;
+        int visits;
+    };
+    const std::vector<RootVisit>& root_visits() const { return root_visits_; }
+
 private:
     struct Choice {
         Action action;
@@ -61,6 +69,7 @@ private:
 
     AgentConfig config_;
     int last_simulated_ = 0;
+    std::vector<RootVisit> root_visits_;
 };
 
 }  // namespace sim

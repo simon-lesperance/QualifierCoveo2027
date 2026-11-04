@@ -13,8 +13,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SIM = ROOT / "sim"
 BUILD = ROOT / "build"
 
-ENGINE_SOURCES = ["rng.cpp", "terrain.cpp", "game.cpp", "agent.cpp", "features.cpp", "value_net.cpp"]
-PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim_search": "search_main.cpp", "sim_live": "live_main.cpp", "sim_datagen": "datagen_main.cpp", "sim_nettest": "nettest_main.cpp"}
+ENGINE_SOURCES = ["rng.cpp", "terrain.cpp", "game.cpp", "agent.cpp", "features.cpp", "value_net.cpp", "policy_net.cpp"]
+PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim_search": "search_main.cpp", "sim_live": "live_main.cpp", "sim_datagen": "datagen_main.cpp", "sim_policygen": "policygen_main.cpp", "sim_nettest": "nettest_main.cpp", "sim_policytest": "policytest_main.cpp"}
 
 # -ffp-contract=off keeps floating-point results identical to the JS engine's.
 FLAGS = ["-std=c++20", "-O2", "-DNDEBUG", "-ffp-contract=off", "-fno-sanitize=undefined", "-Wno-nullability-completeness"]
@@ -41,6 +41,13 @@ def compile_library(output: Path, target: str | None = None) -> None:
     print(f"built {output.name}")
 
 
+def compile_vec_env() -> None:
+    command = [sys.executable, "-m", "ziglang", "c++", *FLAGS, "-shared", "-o", str(BUILD / "libvec.dll")]
+    command += [str(SIM / source) for source in [*ENGINE_SOURCES, "vec_env.cpp"]]
+    subprocess.run(command, check=True)
+    print("built libvec.dll")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--linux", action="store_true")
@@ -52,6 +59,7 @@ def main() -> None:
             compile_program(name, source)
             if args.linux:
                 compile_program(name, source, LINUX_TARGET, "_linux")
+    compile_vec_env()
     compile_library(BOT_DIR / "libsim.dll")
     if args.linux:
         compile_library(BOT_DIR / "libsim.so", LINUX_TARGET)

@@ -291,7 +291,9 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
 
     Choice best{Action{}, -1};
     int most_visits = -1;
+    root_visits_.clear();
     for (const Edge& edge : tree[0].edges) {
+        root_visits_.push_back({edge.action, edge.visits});
         if (edge.visits > most_visits) {
             most_visits = edge.visits;
             best = {edge.action, edge.visits > 0 ? edge.total / edge.visits : 0};
@@ -302,6 +304,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
 
 Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
+    root_visits_.clear();
     uint32_t rng_seed = static_cast<uint32_t>(observation.tick) * 2654435761u;
     Game root = Game::from_observation(observation, rng_seed);
     if (truth != nullptr) {
