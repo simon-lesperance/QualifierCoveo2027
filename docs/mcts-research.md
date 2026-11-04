@@ -48,6 +48,37 @@ close enough that this small sample cannot rule them out; test on a larger,
 fresh paired cohort before drawing conclusions. The launcher integration test
 was not run because no launcher is present in `localRunner/`.
 
+## First value-network iteration
+
+Generated simulator-only data with the baseline agent: 180 games (60 per
+biome), sampled every 5 ticks. Training used 28,998 positions; 3,222 positions
+from 18 whole held-out games were reserved for validation. The 16,293-parameter
+network reached validation R² 0.239 for its 100-tick score target, versus
+R² -0.002 for a quadratic tick-only predictor. This is a useful signal, but
+not by itself evidence that using the net improves action selection.
+
+The exported net's C++ inference matched the PyTorch outputs with a worst
+absolute difference of 1.4e-6, at about 27 microseconds per evaluation.
+
+All score comparisons used the baseline MCTS settings and 6,500 simulated
+ticks per move on paired seeds. On the initial `live-0..3` cohort, overall
+means were 44,331 for baseline, 44,504 at value weight 0.25, 46,430 at 0.5,
+and 42,658 at 1.0. Weight 0.5 was then tested on fresh seeds `live-4..11`:
+
+| Biome | Baseline mean | Net weight 0.5 mean | Delta | Paired t | Net wins |
+|---|---:|---:|---:|---:|---:|
+| deep_crevasse | 50,394 | 51,982 | +3.2% | +1.07 | 5/8 |
+| mountain_range | 39,498 | 36,802 | -6.8% | -2.44 | 1/8 |
+| volcanic_plains | 42,830 | 46,416 | +8.4% | +1.27 | 6/8 |
+| **Overall** | **44,240** | **45,066** | **+1.9%** | **+0.68** | **12/24** |
+
+Decision: do not integrate this model into the live bot. The modest overall
+lift is not reliable on 24 paired games, and the mountain-range regression is
+concerning. Evidence is limited to one training run and a small dataset; further
+work should gather more varied data and validate on a larger paired cohort.
+The launcher test was not run because its binary is unavailable in
+`localRunner/`.
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT
