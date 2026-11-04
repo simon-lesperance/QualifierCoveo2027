@@ -1,7 +1,7 @@
 // Plays games with the live agent and writes training data for the value network.
 //
 //   sim_datagen <output folder> <games> [--biome name] [--budget n] [--every n] [--wait percent]
-//               [--first n] [--threads n] [--radius n] [--depth n] [--net file]
+//               [--first n] [--threads n] [--radius n] [--depth n] [--net file] [--value-weight x]
 //
 // Samples look like MCTS leaves: the state after in-flight meteors land, with no new
 // launches. Otherwise the net is evaluated on positions it never trained on, since
@@ -99,6 +99,7 @@ int main(int argc, char** argv) {
         else if (name == "--budget") config.sim_budget = value;
         else if (name == "--every") every = value;
         else if (name == "--wait") wait_percent = value;
+        else if (name == "--value-weight") config.value_weight = std::atof(argv[i + 1]);
         else if (name == "--first") first = value;
         else if (name == "--threads") threads = value;
         else if (name == "--radius") config.radius = value;

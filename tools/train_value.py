@@ -3,7 +3,7 @@
 It predicts the points scored over the next --window ticks, in thousands. Games are
 split by seed, so validation positions come from games the net never saw.
 
-    python tools/train_value.py runs/data/gen0 --out runs/nets/gen0
+    python tools/train_value.py runs/data/gen1 runs/data/gen2 --out runs/nets/gen2
 """
 
 import argparse
@@ -40,9 +40,10 @@ class ValueNet(nn.Module):
         return self.fc2(self.relu(self.fc1(x))).squeeze(1)
 
 
-def load_games(folder: Path, window: int, group_size: int, group_bonus: float):
+def load_games(folders: list[Path], window: int, group_size: int, group_bonus: float):
     features, targets, seeds, ticks = [], [], [], []
-    for index, path in enumerate(sorted(folder.glob("*.bin"))):
+    paths = [path for folder in folders for path in sorted(folder.glob("*.bin"))]
+    for index, path in enumerate(paths):
         raw = path.read_bytes()
         score = np.frombuffer(raw, "<i4", TICKS)
         kills = np.frombuffer(raw, "<i4", TICKS, TICKS * 4)
@@ -88,7 +89,7 @@ def export(model: ValueNet, path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("data", type=Path)
+    parser.add_argument("data", type=Path, nargs="+")
     parser.add_argument("--out", type=Path, default=Path("runs/nets/latest"))
     parser.add_argument("--window", type=int, default=100)
     parser.add_argument("--epochs", type=int, default=30)
