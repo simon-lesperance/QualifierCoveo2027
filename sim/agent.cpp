@@ -19,23 +19,37 @@ double now_ms() {
     return duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();
 }
 
-void list_actions(const Game& game, const AgentConfig& config, std::vector<Action>& actions) {
+void mark_around(int cell, int radius, bool* wanted) {
+    int row = cell / kWidth;
+    int column = cell % kWidth;
+    for (int dy = -radius; dy <= radius; dy++) {
+        int reach = radius - std::abs(dy);
+        for (int dx = -reach; dx <= reach; dx++) {
+            if (row + dy >= 0 && row + dy < kHeight && column + dx >= 0 && column + dx < kWidth) {
+                wanted[(row + dy) * kWidth + column + dx] = true;
+            }
+        }
+    }
+}
+
+void list_actions(const Game& game, int turn, const AgentConfig& config, std::vector<Action>& actions) {
     actions.clear();
     actions.push_back(Action{});
     int origin = game.origin_y();
 
     if (game.meteor_count() < kMaxMeteors) {
         bool wanted[kCells] = {};
-        for (int i = 0; i < game.dino_count(); i++) {
-            int row = game.dino(i).cell / kWidth;
-            int column = game.dino(i).cell % kWidth;
-            for (int dy = -config.radius; dy <= config.radius; dy++) {
-                int reach = config.radius - std::abs(dy);
-                for (int dx = -reach; dx <= reach; dx++) {
-                    if (row + dy >= 0 && row + dy < kHeight && column + dx >= 0 && column + dx < kWidth) {
-                        wanted[(row + dy) * kWidth + column + dx] = true;
-                    }
-                }
+        if (config.aim_current) {
+            for (int i = 0; i < game.dino_count(); i++) mark_around(game.dino(i).cell, config.radius, wanted);
+        }
+        if (config.aim_predicted) {
+            Game future = game;
+            int last = std::min(kMaxTicks, turn + kMeteorDelay - 1);
+            for (int t = turn; t <= last; t++) future.step(t, Action{});
+            int shift = future.origin_y() - game.origin_y();
+            for (int i = 0; i < future.dino_count(); i++) {
+                int cell = future.dino(i).cell + shift * kWidth;  // Back to today's frame.
+                if (cell < kCells) mark_around(cell, config.radius, wanted);
             }
         }
         if (config.grid) {
@@ -59,7 +73,19 @@ void list_actions(const Game& game, const AgentConfig& config, std::vector<Actio
         for (int cell = 0; cell < kCells; cell++) {
             if (game.flags(cell) & kMountain) mountains[count++] = cell;
         }
-        int stride = std::max(1, count / config.volcanoes);
+        if (config.volcano_near_dinos && game.dino_count() > 0) {
+            auto distance = [&](int cell) {
+                int best = 1000;
+                for (int i = 0; i < game.dino_count(); i++) {
+                    int other = game.dino(i).cell;
+                    best = std::min(best, std::abs(cell % kWidth - other % kWidth) + std::abs(cell / kWidth - other / kWidth));
+                }
+                return best;
+            };
+            std::stable_sort(mountains, mountains + count, [&](int a, int b) { return distance(a) < distance(b); });
+            count = std::min(count, config.volcanoes);
+        }
+        int stride = config.volcano_near_dinos ? 1 : std::max(1, count / config.volcanoes);
         for (int i = 0; i < count; i += stride) {
             Action action;
             action.type = Action::Type::TriggerVolcano;
@@ -111,7 +137,7 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
         bool out_of_time = false;
 
         for (int parent = 0; parent < static_cast<int>(frontier.size()) && !out_of_time; parent++) {
-            list_actions(frontier[parent].game, config_, actions);
+            list_actions(frontier[parent].game, turn, config_, actions);
             for (const Action& action : actions) {
                 if (budget <= 0 || (deadline_ms > 0 && now_ms() >= deadline_ms)) {
                     out_of_time = true;
@@ -209,7 +235,8 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             }
 
             if (!tree[node].opened) {
-                list_actions(game, config_, actions);
+                list_actions(game, turn, config_, actions);
+                if (config_.aim_predicted) budget -= kMeteorDelay;
                 std::stable_sort(actions.begin(), actions.end(), [&](const Action& a, const Action& b) {
                     return action_promise(game, a) > action_promise(game, b);
                 });
