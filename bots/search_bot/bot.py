@@ -1,4 +1,4 @@
-"""Beam search through the compiled simulator.
+"""Open-loop MCTS through the compiled simulator.
 
 The library is built by tools/build_sim.py and loaded here at import time, which
 runs before the bot connects. Set BOT_TIME_MS to test with a different time budget.
@@ -22,7 +22,8 @@ SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus
 
 # The limit is 150 ms, but even a trivial bot sees spikes of up to 65 ms.
 TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
-BEAM, RADIUS, HORIZON, VOLCANOES = 30, 2, 4, 6
+RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 6, 5
+WIDENING, EXPLORATION = 3.0, 0.5
 
 
 class Observation(ctypes.Structure):
@@ -54,7 +55,7 @@ def load_library() -> ctypes.CDLL:
     name = "libsim.dll" if sys.platform == "win32" else "libsim.so"
     library = ctypes.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), name))
     library.sim_agent_create.restype = ctypes.c_void_p
-    library.sim_agent_create.argtypes = [ctypes.c_int] * 4
+    library.sim_agent_create.argtypes = [ctypes.c_int] * 4 + [ctypes.c_double] * 2
     library.sim_agent_act.restype = None
     library.sim_agent_act.argtypes = [
         ctypes.c_void_p, ctypes.POINTER(Observation), ctypes.c_double,
@@ -72,7 +73,7 @@ LIBRARY = load_library()
 
 class Bot:
     def __init__(self):
-        self.agent = LIBRARY.sim_agent_create(BEAM, RADIUS, HORIZON, VOLCANOES)
+        self.agent = LIBRARY.sim_agent_create(RADIUS, HORIZON, VOLCANOES, DEPTH, WIDENING, EXPLORATION)
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []

@@ -19,7 +19,7 @@ PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim
 # -ffp-contract=off keeps floating-point results identical to the JS engine's.
 FLAGS = ["-std=c++20", "-O2", "-DNDEBUG", "-ffp-contract=off", "-fno-sanitize=undefined", "-Wno-nullability-completeness"]
 LINUX_TARGET = "x86_64-linux-gnu.2.31"
-BOT_DIR = ROOT / "bots" / "beam_bot"
+BOT_DIR = ROOT / "bots" / "search_bot"
 
 
 def compile_program(name: str, main_source: str, target: str | None = None, suffix: str = ".exe") -> None:

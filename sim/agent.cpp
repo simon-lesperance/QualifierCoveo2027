@@ -190,8 +190,8 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + iteration * 40503u);
         iteration++;
 
-        int path_node[8];
-        int path_edge[8];
+        int path_node[32];
+        int path_edge[32];
         int path_length = 0;
         int node = 0;
         int turn = tick;

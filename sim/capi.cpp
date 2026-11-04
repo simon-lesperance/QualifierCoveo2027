@@ -12,12 +12,15 @@ SIM_EXPORT int sim_observation_size() {
     return static_cast<int>(sizeof(sim::Observation));
 }
 
-SIM_EXPORT void* sim_agent_create(int beam, int radius, int horizon, int volcanoes) {
+SIM_EXPORT void* sim_agent_create(int radius, int horizon, int volcanoes, int depth, double widening, double exploration) {
     sim::AgentConfig config;
-    config.beam = beam;
+    config.mcts = true;
     config.radius = radius;
     config.horizon = horizon;
     config.volcanoes = volcanoes;
+    config.mcts_depth = depth;
+    config.widening = widening;
+    config.exploration = exploration;
     config.sim_budget = 1 << 30;  // The clock is the limit in a live game.
     return new sim::Agent(config);
 }
