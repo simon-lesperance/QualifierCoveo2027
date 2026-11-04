@@ -7,14 +7,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from build_sim import BUILD
+from platform_paths import simulator_path
 
 
 class LiveResultsTest(unittest.TestCase):
     def run_game(self, *options: str) -> subprocess.CompletedProcess:
         return subprocess.run(
             [
-                str(BUILD / "sim_live.exe"), "1", "--mcts", "1",
+                str(simulator_path("sim_live")), "1", "--mcts", "1",
                 "--budget", "1", "--threads", "1", "--first", "123", *options,
             ],
             capture_output=True,

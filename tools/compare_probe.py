@@ -15,10 +15,9 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "localRunner" / (
-    "blitz-challenge-win.exe" if sys.platform == "win32" else "blitz-challenge-linux"
-)
+from platform_paths import ROOT, launcher_path
+
+LAUNCHER = launcher_path()
 BOT = ROOT / "experiments" / "probe_bot"
 STATE_RE = re.compile(r"STATE (\d+) (\d+) (\w+)")
 REPLAY_RE = re.compile(r"--biome (\S+) --randomSeed (\S+)")

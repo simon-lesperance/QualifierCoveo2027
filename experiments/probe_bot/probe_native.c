@@ -1,11 +1,15 @@
 // Same BFS as the Numba probe, to compare a prebuilt library against the JIT.
 //
-// Build for the server from the repository root:
-//   .venv/bin/python -m ziglang cc -target x86_64-linux-gnu.2.31 -O2 -shared -fPIC \
-//     -o experiments/probe_bot/libprobe.so experiments/probe_bot/probe_native.c
+// Build for this host and the Linux server: python tools/build_sim.py --linux
 
 #include <stdint.h>
 #include <string.h>
+
+#ifdef _WIN32
+#define PROBE_EXPORT __declspec(dllexport)
+#else
+#define PROBE_EXPORT __attribute__((visibility("default")))
+#endif
 
 static int bfs(const uint8_t *blocked, int start, int32_t *dist, int32_t *queue) {
     static const int dy[4] = {0, 0, 1, -1};
@@ -30,7 +34,7 @@ static int bfs(const uint8_t *blocked, int start, int32_t *dist, int32_t *queue)
     return tail;
 }
 
-int64_t bfs_many(const uint8_t *blocked, int start, int count) {
+PROBE_EXPORT int64_t bfs_many(const uint8_t *blocked, int start, int count) {
     int32_t dist[400], queue[400];
     int64_t total = 0;
     for (int i = 0; i < count; i++) total += bfs(blocked, start, dist, queue);

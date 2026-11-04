@@ -4,6 +4,16 @@ Notes for improving `search_bot`, based on the AlphaGo/AlphaZero family of
 methods. These are high-level takeaways; validate any adaptation to this
 single-player, partially observable game with controlled local benchmarks.
 
+## Running these examples on Windows
+
+Historical command blocks below use Bash continuations (`\`). In PowerShell,
+put the command on one line (or use PowerShell's backtick continuation).
+Use `./build/sim_live.exe` on Windows in place of `build/sim_live_linux`;
+the original `build/sim_live.exe` baseline example refers to the same native
+tool. On Linux, use `build/sim_live_linux` throughout. Build host tools with
+`uv run --no-project python tools/build_sim.py`; Python benchmark tools choose
+the appropriate executable automatically. Keep forward slashes in paths.
+
 ## Baseline
 
 Live bot settings (`radius 2, horizon 4, volcanoes 6, depth 5, widening 3,

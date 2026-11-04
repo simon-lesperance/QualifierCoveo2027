@@ -52,6 +52,9 @@ def read_first_line(path: str) -> str:
 
 
 def probe_cpu() -> None:
+    if sys.platform == "win32":
+        print(f"PROBE cpu_model={platform.processor()} avx2=unknown avx512f=unknown")
+        return
     try:
         with open("/proc/cpuinfo") as file:
             lines = file.read().splitlines()
@@ -158,7 +161,8 @@ def probe_numba() -> None:
 
 
 def probe_native() -> None:
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "libprobe.so")
+    name = "libprobe.dll" if sys.platform == "win32" else "libprobe.so"
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
     try:
         library = ctypes.CDLL(path)
     except OSError as error:
@@ -187,8 +191,11 @@ def run_startup_probes() -> None:
     if hasattr(os, "sched_getaffinity"):
         print(f"PROBE usable_cpus={len(os.sched_getaffinity(0))}")
     probe_cpu()
-    print(f"PROBE cgroup_cpu_max={read_first_line('/sys/fs/cgroup/cpu.max')}")
-    print(f"PROBE meminfo={read_first_line('/proc/meminfo')}")
+    if sys.platform == "linux":
+        print(f"PROBE cgroup_cpu_max={read_first_line('/sys/fs/cgroup/cpu.max')}")
+        print(f"PROBE meminfo={read_first_line('/proc/meminfo')}")
+    else:
+        print("PROBE cgroup_cpu_max=not applicable meminfo=unavailable on this platform")
     print(f"PROBE cwd={os.getcwd()}")
     probe_disk()
     print(f"PROBE tempdir={tempfile.gettempdir()}")

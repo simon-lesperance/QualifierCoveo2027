@@ -9,10 +9,10 @@ import argparse
 import re
 import statistics
 import subprocess
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-SEARCH = ROOT / "build" / "sim_search.exe"
+from platform_paths import ROOT, simulator_path
+
+SEARCH = simulator_path("sim_search")
 PLANS = ROOT / "runs" / "plans"
 BIOMES = ["deep_crevasse", "mountain_range", "volcanic_plains"]
 

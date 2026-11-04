@@ -11,71 +11,121 @@ Bot for the Dinosaur Extinction challenge, a solo high-score game. The team's sc
 | `tools/` | Local game runner, simulator build and parity check, upload packaging |
 | `bots/` | Bots we upload. `search_bot` is the current one. Its library is git-ignored: build it with `tools/build_sim.py --linux` |
 | `experiments/` | Bots used for testing: `probe_bot` measures the server, `chaos_bot` and `replay_bot` check the simulator |
-| `localRunner/` | Not in git. Put the Linux `blitz-challenge-linux` launcher here |
+| `localRunner/` | Not in git. Put `blitz-challenge-linux` (Linux) or `blitz-challenge-win.exe` (Windows) here |
 
 ## Setup
 
-Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
+Supports x86-64 Windows and Linux. Requires Python 3.13 and
+[uv](https://docs.astral.sh/uv/). Run these commands from the repository root
+in Bash, PowerShell, or Command Prompt:
 
-```bash
+```text
 uv venv --python 3.13 .venv
-uv pip install --python .venv/bin/python -r requirements-dev.txt
+uv pip install --python .venv -r requirements-dev.txt
 ```
+
+The commands below use `uv run --no-project python`, which selects the local
+`.venv` without shell-specific activation. To invoke Python directly, use
+`.venv/bin/python` on Linux or `.venv/Scripts/python.exe` on Windows. Paths use
+forward slashes, which Python, uv, and the Windows tools used here accept.
+
+Build the native tools and both bot libraries (search and probe):
+
+```text
+uv run --no-project python tools/build_sim.py
+```
+
+Native simulator executables are `build/sim_<name>_linux` on Linux and
+`build/sim_<name>.exe` on Windows. Libraries are `libsim.so` / `libprobe.so` on
+Linux and `libsim.dll` / `libprobe.dll` on Windows. All Python tools select the
+host artifacts automatically. No Visual Studio or separate C/C++ compiler is
+required; Zig is installed by the development requirements.
+
+Add `--linux` to also build x86-64 Linux artifacts suitable for the server
+(including when developing on Windows), or `--windows` to also cross-compile
+x86-64 Windows artifacts from Linux. Both flags can be combined. Cross-built
+executables still require their matching OS to run. The default build no
+longer writes Linux binaries under `.exe` or `.dll` names; rebuild once after
+updating.
 
 ## Common commands
 
 Play local games at server timing:
 
-```bash
-.venv/bin/python tools/run_local.py --games 3
+```text
+uv run --no-project python tools/run_local.py --games 3
 ```
 
 Test a specific bot on a fixed map:
 
-```bash
-.venv/bin/python tools/run_local.py --bot experiments/probe_bot --biome mountain_range --seed abc
+```text
+uv run --no-project python tools/run_local.py --bot experiments/probe_bot --biome mountain_range --seed abc
 ```
 
 Benchmark the current bot across fixed seeds in every biome:
 
-```bash
-.venv/bin/python tools/benchmark_bot.py --bot bots/search_bot --seeds 3
+```text
+uv run --no-project python tools/benchmark_bot.py --bot bots/search_bot --seeds 3
 ```
 
 Experimental optimistic MCTS remains opt-in: set `BOT_OPTIMISM=0.25` for a
-local benchmark, or use `--optimism 0.25` with `build/sim_live_linux`.
+local benchmark, or use `--optimism 0.25` with `build/sim_live_linux` (Linux)
+or `./build/sim_live.exe` (Windows).
 The simulator accepts `--csv <path>` for per-seed results. See
 `docs/mcts-research.md` for measured gains and regressions; neither optimism
 nor predicted targeting is enabled by default.
 
+Environment variables are shell-specific:
+
+```bash
+# Bash
+BOT_OPTIMISM=0.25 uv run --no-project python tools/benchmark_bot.py --seeds 3
+```
+
+```powershell
+# PowerShell
+$env:BOT_OPTIMISM = "0.25"
+uv run --no-project python tools/benchmark_bot.py --seeds 3
+Remove-Item Env:BOT_OPTIMISM
+```
+
+```bat
+:: Command Prompt
+set "BOT_OPTIMISM=0.25"
+uv run --no-project python tools/benchmark_bot.py --seeds 3
+set "BOT_OPTIMISM="
+```
+
 Compare the simulator's live-information MCTS with and without a trained value
 network on the same deterministic seeds:
 
-```bash
-.venv/bin/python tools/benchmark_value_net.py runs/nets/<name>/value_net.bin --games 2
+```text
+uv run --no-project python tools/benchmark_value_net.py runs/nets/<name>/value_net.bin --games 2
 ```
 
 The network file must first be produced by `tools/train_value.py`; training
-requires PyTorch in addition to the development dependencies. This simulator
+requires PyTorch in addition to the development dependencies
+(`uv pip install --python .venv torch`; choose the appropriate PyTorch build
+for CUDA if needed). Training and data files work on either OS. This simulator
 comparison is not a replacement for testing the bot under the launcher's tick
 budget.
 
 Package a bot folder, writing `<folder>.zip` next to it:
 
-```bash
-.venv/bin/python tools/make_zip.py experiments/probe_bot
+```text
+uv run --no-project python tools/make_zip.py experiments/probe_bot
 ```
 
 Compare a downloaded server game with a local replay of the same seed:
 
-```bash
-.venv/bin/python tools/compare_probe.py blitz-games/<gameId>
+```text
+uv run --no-project python tools/compare_probe.py blitz-games/<gameId>
 ```
 
 Build the simulator (Zig comes with the dev requirements, so no other compiler is needed):
 
-```bash
-.venv/bin/python tools/build_sim.py --linux
+```text
+uv run --no-project python tools/build_sim.py --linux
 ```
 
 Check the simulator against the real engine, tick by tick. Each game starts with
@@ -83,33 +133,47 @@ deterministic boundary, volcano, and meteor-cap actions, then continues with
 seeded random actions. This checks every tick's score and visible state. It
 needs `localRunner/`:
 
-```bash
-.venv/bin/python tools/check_sim.py --games 12
+```text
+uv run --no-project python tools/check_sim.py --games 12
 ```
 
 Search known seeds for strong plans, written to `runs/plans/`:
 
-```bash
-.venv/bin/python tools/estimate_maps.py --width 200 --seeds 4
+```text
+uv run --no-project python tools/estimate_maps.py --width 200 --seeds 4
 ```
 
 Check a plan on the real engine, and see how it scores:
 
-```bash
-.venv/bin/python tools/verify_plan.py runs/plans/<plan>.txt <biome> <seed>
+```text
+uv run --no-project python tools/verify_plan.py runs/plans/<plan>.txt <biome> <seed>
 ```
 
-```bash
-.venv/bin/python tools/analyze_plan.py runs/plans/<plan>.txt <biome> <seed>
+```text
+uv run --no-project python tools/analyze_plan.py runs/plans/<plan>.txt <biome> <seed>
 ```
 
-Measure simulator speed:
+Measure simulator speed (Linux):
 
 ```bash
-build/sim_bench.exe 30
+build/sim_bench_linux 30
 ```
 
-Build upload zips with `make_zip.py`; it validates the ZIP and lists its contents.
+On Windows, run `./build/sim_bench.exe 30`. PowerShell accepts this
+forward-slash path; in Command Prompt use `"build/sim_bench.exe" 30`.
+
+Run the development regression checks after building:
+
+```text
+uv run --no-project python -m unittest discover -s tools -p "test_*.py"
+```
+
+Build upload zips with `make_zip.py`; it works on both OSes, validates the ZIP,
+and lists its contents. Run `build_sim.py --linux` first for native bots: uploads
+need `.so` libraries even when packaged on Windows. Windows DLLs and linker
+artifacts are excluded automatically. Probe CPU/memory diagnostics that rely on
+Linux `/proc` or cgroups are marked unavailable on Windows; the native BFS,
+process, disk, and optional Numba probes run on either OS.
 
 ## Writing a bot
 

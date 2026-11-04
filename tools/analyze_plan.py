@@ -11,8 +11,9 @@ import statistics
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-SIM_REPLAY = ROOT / "build" / "sim_replay.exe"
+from platform_paths import simulator_path
+
+SIM_REPLAY = simulator_path("sim_replay")
 LAVA = 4
 
 

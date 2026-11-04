@@ -13,15 +13,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-BUILD = ROOT / "build"
+from platform_paths import ROOT, simulator_path
+
 BIOMES = ["deep_crevasse", "mountain_range", "volcanic_plains"]
 BIOME_RE = re.compile(r"^(\S+)\s+mean\s+(-?\d+)\s+best\s+(-?\d+)\s+kills\s+(-?\d+)\s+spawned\s+(-?\d+)\s*$")
 OVERALL_RE = re.compile(r"^overall mean (-?\d+)\s*$")
 
 
 def default_simulator() -> Path:
-    return BUILD / "sim_live.exe"
+    return simulator_path("sim_live")
 
 
 def parse_output(text: str) -> tuple[dict[str, dict[str, int]], int]:

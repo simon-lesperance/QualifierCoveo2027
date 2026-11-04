@@ -17,11 +17,10 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "localRunner" / (
-    "blitz-challenge-win.exe" if sys.platform == "win32" else "blitz-challenge-linux"
-)
-SIM_REPLAY = ROOT / "build" / "sim_replay.exe"
+from platform_paths import ROOT, launcher_path, simulator_path
+
+LAUNCHER = launcher_path()
+SIM_REPLAY = simulator_path("sim_replay")
 BOT = ROOT / "experiments" / "chaos_bot"
 STARTER = ROOT / "starterkit" / "python"
 BIOMES = ["deep_crevasse", "mountain_range", "volcanic_plains"]

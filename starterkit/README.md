@@ -17,6 +17,12 @@ Your bot connects to `ws://127.0.0.1:8765`, so start the local game server
 registers with a default team name; on our servers it is authenticated
 automatically (through the `TOKEN` environment variable).
 
+For this repository's Python simulator, search bot, and diagnostic workflows on
+Windows or Linux, see [the project README](../README.md). The root
+`tools/build_sim.py` builds host-native libraries by default; add `--linux`
+when preparing Linux server libraries on Windows. The root Python tools and
+`tools/make_zip.py` work on either OS without shell-specific path changes.
+
 ## Files you should not edit
 
 | Language   | Generated game types                        | Connection code                                                                     |
