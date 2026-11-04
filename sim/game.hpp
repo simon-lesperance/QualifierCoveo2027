@@ -97,6 +97,12 @@ public:
     // a dinosaur survives any impact on the tick it spawns.
     void set_spawn_shield(bool on) { spawn_shield_ = on; }
 
+    // Tiles a new wave could spawn on right now.
+    int spawn_tiles() const {
+        int16_t bag[kCells];
+        return spawn_bag(bag);
+    }
+
     int score() const { return score_; }
     int origin_y() const { return origin_y_; }
     int total_kills() const { return total_kills_; }
