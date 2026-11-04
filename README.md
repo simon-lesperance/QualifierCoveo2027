@@ -9,6 +9,7 @@ Bot for the Dinosaur Extinction challenge, a solo high-score game. The team's sc
 | `starterkit/` | Coveo's starter kit. `game_message.py` and `application.py` should not be edited |
 | `sim/` | C++ port of the game engine, for fast search and training |
 | `tools/` | Local game runner, simulator build and parity check, upload packaging |
+| `bots/` | Bots we upload. `search_bot` is the current one. Its library is git-ignored: build it with `tools/build_sim.py --linux` |
 | `experiments/` | Bots used for testing: `probe_bot` measures the server, `chaos_bot` and `replay_bot` check the simulator |
 | `localRunner/` | Not in git. Download the launcher from the dashboard and unpack it here |
 
