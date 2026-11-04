@@ -1,4 +1,4 @@
-"""Open-loop MCTS through the compiled simulator.
+"""Open-loop MCTS through the compiled simulator, guided by a small value network.
 
 The library is built by tools/build_sim.py and loaded here at import time, which
 runs before the bot connects. Set BOT_TIME_MS to test with a different time budget.
@@ -24,6 +24,7 @@ SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus
 TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
 RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 6, 5
 WIDENING, EXPLORATION = 3.0, 0.5
+VALUE_WEIGHT = 0.3
 
 
 class Observation(ctypes.Structure):
@@ -61,6 +62,8 @@ def load_library() -> ctypes.CDLL:
         ctypes.c_void_p, ctypes.POINTER(Observation), ctypes.c_double,
         ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
     ]
+    library.sim_agent_load_net.restype = ctypes.c_int
+    library.sim_agent_load_net.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_double]
     library.sim_agent_last_simulated.restype = ctypes.c_int
     library.sim_agent_last_simulated.argtypes = [ctypes.c_void_p]
     if library.sim_observation_size() != ctypes.sizeof(Observation):
@@ -74,6 +77,9 @@ LIBRARY = load_library()
 class Bot:
     def __init__(self):
         self.agent = LIBRARY.sim_agent_create(RADIUS, HORIZON, VOLCANOES, DEPTH, WIDENING, EXPLORATION)
+        net_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "value_net.bin")
+        if not LIBRARY.sim_agent_load_net(self.agent, net_path.encode(), VALUE_WEIGHT):
+            print("Could not load the value network, playing without it", flush=True)
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []

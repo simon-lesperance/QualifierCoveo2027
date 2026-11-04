@@ -35,6 +35,7 @@ struct Options {
     double cluster = 30;  // Reward for dinosaurs a single blast could reach.
     double spread = 0;    // Penalty per living dinosaur, to favour clearing the map.
     bool shield = false;  // Rule out spawn-tick kills, which need to foresee spawns.
+    double pocket = 0;    // Reward per tile removed from where waves can spawn.
 };
 
 struct Candidate {
@@ -118,8 +119,10 @@ int best_blast(const Game& game) {
 }
 
 double evaluate(const Game& rolled, const Options& options) {
-    int blast = best_blast(rolled);
-    return rolled.score() + options.cluster * blast * blast - options.spread * rolled.dino_count();
+    int blast = options.cluster > 0 ? best_blast(rolled) : 0;
+    double value = rolled.score() + options.cluster * blast * blast - options.spread * rolled.dino_count();
+    if (options.pocket > 0) value += options.pocket * (sim::kCells - rolled.spawn_tiles());
+    return value;
 }
 
 uint64_t state_hash(const Game& game) {
@@ -156,12 +159,14 @@ void report(const sim::Terrain& terrain, const char* seed, const std::vector<Act
     int volcanoes = 0;
     int waves = 0;
     int last_id = 0;
+    int lowest_spawn = sim::kCells;
     for (int turn = 1; turn <= sim::kMaxTicks; turn++) {
         int before = game.score();
         Action action = plan[turn];
         meteors += action.type == Action::Type::LaunchMeteor;
         volcanoes += action.type == Action::Type::TriggerVolcano;
         game.step(turn, action);
+        lowest_spawn = std::min(lowest_spawn, game.spawn_tiles());
         if (game.kills_this_tick() > 0) {
             auto& entry = by_size[game.kills_this_tick()];
             entry.first++;
@@ -174,8 +179,8 @@ void report(const sim::Terrain& terrain, const char* seed, const std::vector<Act
             }
         }
     }
-    std::printf("RESULT score=%d kills=%d spawned=%d waves=%d meteors=%d volcanoes=%d\n", game.score(), game.total_kills(),
-                last_id, waves, meteors, volcanoes);
+    std::printf("RESULT score=%d kills=%d spawned=%d waves=%d meteors=%d volcanoes=%d lowest_spawn_tiles=%d\n", game.score(),
+                game.total_kills(), last_id, waves, meteors, volcanoes, lowest_spawn);
     for (const auto& [size, entry] : by_size) {
         std::printf("  %2d-kill ticks: %4d  points %7lld\n", size, entry.first, entry.second);
     }
@@ -203,6 +208,7 @@ int main(int argc, char** argv) {
         else if (name == "--volcanoes") options.volcanoes = static_cast<int>(value);
         else if (name == "--threads") options.threads = static_cast<int>(value);
         else if (name == "--shield") options.shield = value != 0;
+        else if (name == "--pocket") options.pocket = value;
     }
 
     sim::Terrain terrain(seed, biome);

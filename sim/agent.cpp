@@ -4,8 +4,11 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <unordered_set>
 #include <vector>
+
+#include "features.hpp"
 
 namespace sim {
 
@@ -182,7 +185,8 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
     std::vector<TreeNode> tree(1);
     tree.reserve(4096);
     std::vector<Action> actions;
-    double best_reward = 1;
+    double lowest_reward = std::numeric_limits<double>::infinity();
+    double highest_reward = -std::numeric_limits<double>::infinity();
     uint32_t iteration = 0;
 
     while (budget > 0 && (deadline_ms <= 0 || now_ms() < deadline_ms)) {
@@ -223,12 +227,13 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                 edge_index = static_cast<int>(tree[node].edges.size()) - 1;
             } else {
                 double log_visits = std::log(tree[node].visits + 1.0);
+                double reward_range = std::max(1.0, highest_reward - lowest_reward);
                 double best_score = -1e18;
                 for (int i = 0; i < static_cast<int>(tree[node].edges.size()); i++) {
                     const Edge& edge = tree[node].edges[i];
                     double score = edge.visits == 0
                                        ? 1e17
-                                       : edge.total / edge.visits / best_reward +
+                                       : (edge.total / edge.visits - lowest_reward) / reward_range +
                                              config_.exploration * std::sqrt(log_visits / edge.visits);
                     if (score > best_score) {
                         best_score = score;
@@ -263,7 +268,17 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         last_simulated_ = config_.sim_budget - budget;
 
         double reward = game.score() - root.score();
-        best_reward = std::max(best_reward, reward);
+        if (config_.net != nullptr) {
+            constexpr double kWindow = 100;  // The net predicts points over this many ticks.
+            int next_tick = last + 1;
+            uint8_t features[kFeatureBytes];
+            encode_features(game, next_tick, features);
+            double remaining = std::min(1.0, (kMaxTicks + 1 - next_tick) / kWindow);
+            reward += config_.value_weight * 1000 * remaining * config_.net->evaluate(features);
+            budget -= config_.net_cost;
+        }
+        lowest_reward = std::min(lowest_reward, reward);
+        highest_reward = std::max(highest_reward, reward);
         tree[0].visits++;
         for (int i = 0; i < path_length; i++) {
             Edge& edge = tree[path_node[i]].edges[path_edge[i]];

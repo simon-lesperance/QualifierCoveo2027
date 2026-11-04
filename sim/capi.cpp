@@ -29,6 +29,17 @@ SIM_EXPORT void sim_agent_destroy(void* agent) {
     delete static_cast<sim::Agent*>(agent);
 }
 
+// Returns 0 if the file can't be read. The net must outlive the agent, so it's never freed.
+SIM_EXPORT int sim_agent_load_net(void* agent, const char* path, double weight) {
+    auto* net = new sim::ValueNet();
+    if (!net->load(path)) {
+        delete net;
+        return 0;
+    }
+    static_cast<sim::Agent*>(agent)->set_net(net, weight);
+    return 1;
+}
+
 // Writes the chosen action: type 0 none, 1 meteor, 2 volcano.
 SIM_EXPORT void sim_agent_act(void* agent, const sim::Observation* observation, double time_ms, int* type, int* x, int* y) {
     auto* instance = static_cast<sim::Agent*>(agent);

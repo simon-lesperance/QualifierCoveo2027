@@ -5,6 +5,7 @@
 //                              [--reveal-rows 1] [--reveal-rng 1] [--reveal-waves 1]
 //                              [--shield 1] [--grid 1]
 //                              [--mcts 1] [--exploration x] [--depth n] [--widening x]
+//                              [--net file] [--value-weight x] [--net-cost n] [--biome name]
 
 #include <atomic>
 #include <cstdio>
@@ -49,7 +50,9 @@ int main(int argc, char** argv) {
     int games = std::atoi(argv[1]);
     int threads = 11;
     int first = 0;
+    std::string biome_filter;
     sim::AgentConfig config;
+    sim::ValueNet net;
     for (int i = 2; i + 1 < argc; i += 2) {
         std::string name = argv[i];
         int value = std::atoi(argv[i + 1]);
@@ -61,6 +64,16 @@ int main(int argc, char** argv) {
         else if (name == "--samples") config.samples = value;
         else if (name == "--threads") threads = value;
         else if (name == "--first") first = value;
+        else if (name == "--value-weight") config.value_weight = std::atof(argv[i + 1]);
+        else if (name == "--net-cost") config.net_cost = value;
+        else if (name == "--biome") biome_filter = argv[i + 1];
+        else if (name == "--net") {
+            if (!net.load(argv[i + 1])) {
+                std::fprintf(stderr, "could not load %s\n", argv[i + 1]);
+                return 1;
+            }
+            config.net = &net;
+        }
         else if (name == "--mcts") config.mcts = value != 0;
         else if (name == "--exploration") config.exploration = std::atof(argv[i + 1]);
         else if (name == "--depth") config.mcts_depth = value;
@@ -76,6 +89,7 @@ int main(int argc, char** argv) {
     std::atomic<int> next{0};
     auto work = [&] {
         for (int job = next.fetch_add(1); job < games * 3; job = next.fetch_add(1)) {
+            if (!biome_filter.empty() && biome_filter != kBiomes[job % 3]) continue;
             results[job] = play(kBiomes[job % 3], "live-" + std::to_string(first + job / 3), config);
         }
     };
