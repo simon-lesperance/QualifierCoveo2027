@@ -1,7 +1,7 @@
 """Build the C++ simulator with Zig, which needs no other compiler.
 
     python tools/build_sim.py            # Windows tools in build/
-    python tools/build_sim.py --linux    # adds Linux builds, including the bot's .so
+    python tools/build_sim.py --linux    # adds Linux builds, including the bot's library
 """
 
 import argparse
@@ -19,6 +19,7 @@ PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim
 # -ffp-contract=off keeps floating-point results identical to the JS engine's.
 FLAGS = ["-std=c++20", "-O2", "-DNDEBUG", "-ffp-contract=off", "-fno-sanitize=undefined", "-Wno-nullability-completeness"]
 LINUX_TARGET = "x86_64-linux-gnu.2.31"
+BOT_DIR = ROOT / "bots" / "beam_bot"
 
 
 def compile_program(name: str, main_source: str, target: str | None = None, suffix: str = ".exe") -> None:
@@ -29,6 +30,15 @@ def compile_program(name: str, main_source: str, target: str | None = None, suff
     command += [str(SIM / source) for source in [*ENGINE_SOURCES, main_source]]
     subprocess.run(command, check=True)
     print(f"built {name}{suffix}")
+
+
+def compile_library(output: Path, target: str | None = None) -> None:
+    command = [sys.executable, "-m", "ziglang", "c++", *FLAGS, "-shared", "-fPIC"]
+    if target:
+        command += ["-target", target]
+    command += ["-o", str(output), *(str(SIM / source) for source in [*ENGINE_SOURCES, "capi.cpp"])]
+    subprocess.run(command, check=True)
+    print(f"built {output.name}")
 
 
 def main() -> None:
@@ -42,6 +52,9 @@ def main() -> None:
             compile_program(name, source)
             if args.linux:
                 compile_program(name, source, LINUX_TARGET, "_linux")
+    compile_library(BOT_DIR / "libsim.dll")
+    if args.linux:
+        compile_library(BOT_DIR / "libsim.so", LINUX_TARGET)
 
 
 if __name__ == "__main__":

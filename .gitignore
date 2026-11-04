@@ -38,3 +38,5 @@ wandb/
 
 # Simulator build output
 build/
+*.pdb
+*.lib

@@ -23,6 +23,9 @@ public:
 
     Action act(const Observation& observation);
 
+    void set_time_budget(double ms) { config_.time_budget_ms = ms; }
+    int last_simulated() const { return last_simulated_; }
+
 private:
     struct Choice {
         Action action;
@@ -32,6 +35,7 @@ private:
     Choice search(const Game& root, int tick, int budget, double deadline_ms);
 
     AgentConfig config_;
+    int last_simulated_ = 0;
 };
 
 }  // namespace sim

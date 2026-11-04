@@ -113,6 +113,7 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
                 int last = std::min(kMaxTicks, turn + config_.horizon);
                 for (int future = turn + 1; future <= last; future++) next.step(future, Action{});
                 budget -= last - turn + 1;
+                last_simulated_ += last - turn + 1;
                 candidates.push_back({static_cast<double>(next.score()), state_hash(next), parent, action,
                                       depth == 0 ? action : frontier[parent].first});
             }
@@ -139,6 +140,7 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
 }
 
 Action Agent::act(const Observation& observation) {
+    last_simulated_ = 0;
     Game root = Game::from_observation(observation, static_cast<uint32_t>(observation.tick) * 2654435761u);
     if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return Action{};
 
