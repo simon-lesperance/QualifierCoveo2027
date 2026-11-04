@@ -1,8 +1,8 @@
 # MCTS and value-network research notes
 
 Notes for improving `search_bot`, based on the AlphaGo/AlphaZero family of
-methods. The paper summaries below are short and from memory; check the cited
-papers before relying on a specific hyperparameter.
+methods. These are high-level takeaways; validate any adaptation to this
+single-player, partially observable game with controlled local benchmarks.
 
 ## Baseline
 
@@ -25,25 +25,50 @@ build/sim_live.exe 4 --mcts 1 --radius 2 --horizon 4 --volcanoes 6 --depth 5 \
 Three random launcher games at 150 ms per tick scored 40,318, 47,364 and
 43,701, with no timeouts.
 
+## First search-tuning iteration
+
+Seven alternatives were compared against the baseline using the same seeds
+(`live-0` through `live-3` in each biome), MCTS enabled, and 6,500 simulated
+ticks per move. The four-seed-per-biome cohort is small, so close differences
+are inconclusive; none of the tested alternatives beat the baseline overall.
+
+| Change | Overall | deep_crevasse | mountain_range | volcanic_plains |
+|---|---:|---:|---:|---:|
+| baseline (depth 5, widening 3, exploration 0.5) | **44,331** | 49,371 | 40,345 | 43,276 |
+| exploration 0.3 | 43,947 | 48,804 | 39,965 | 43,073 |
+| exploration 0.8 | 42,036 | 46,460 | 39,417 | 40,230 |
+| exploration 1.2 | 44,090 | 48,590 | 41,867 | 41,814 |
+| widening 2 | 42,103 | 48,766 | 37,417 | 40,127 |
+| widening 4 | 43,941 | 49,639 | 40,343 | 41,841 |
+| depth 4 | 43,721 | 49,777 | 40,014 | 41,373 |
+| depth 7 | 42,566 | 48,923 | 37,619 | 41,157 |
+
+Decision: retain the baseline settings. Exploration 1.2 and widening 4 are
+close enough that this small sample cannot rule them out; test on a larger,
+fresh paired cohort before drawing conclusions. The launcher integration test
+was not run because no launcher is present in `localRunner/`.
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT
   selection, and leaf evaluation mixes a value net with fast rollouts. Training
   the value net on many positions from the same game made it overfit, so
   positions were sampled one per game.
-- **AlphaGo Zero / AlphaZero** (Nature 2017; arXiv 1712.01815): a single net
-  outputs a policy and a value. Its targets are the root visit distribution and
-  the game outcome, taken from a replay window of self-play games.
-- **MuZero** (arXiv 1911.08265): n-step bootstrapped value targets, min-max
-  normalization of in-tree Q for unbounded rewards, and a value transform for
-  heavy-tailed returns.
-- **KataGo** (arXiv 1902.10565): playout cap randomization yields more value
-  samples for the same compute, and dense auxiliary targets speed up learning.
+- **AlphaGo Zero / AlphaZero** ([paper](https://arxiv.org/abs/1712.01815)): a
+  single net outputs a policy and a value. Its targets are the root visit
+  distribution and the game outcome, taken from a replay window of self-play
+  games.
+- **MuZero** ([paper](https://arxiv.org/abs/1911.08265)): n-step bootstrapped
+  value targets, min-max normalization of in-tree Q for unbounded rewards, and
+  a value transform for heavy-tailed returns.
+- **KataGo** ([paper](https://arxiv.org/abs/1902.10565), [methods notes](https://github.com/lightvector/KataGo/blob/master/docs/KataGoMethods.md)):
+  playout cap randomization yields more value samples for the same compute, and
+  dense auxiliary targets speed up learning.
 - **Gumbel AlphaZero** (ICLR 2022): sequential halving at the root plus
   completed-Q policy targets. It improves the policy even with few simulations.
-- **Expert Iteration** (arXiv 1705.08439): the search teaches a net, and the
-  net in turn guides the search. Training on the tree policy works better than
-  training only on the chosen move.
+- **Expert Iteration** ([paper](https://arxiv.org/abs/1705.08439)): the search
+  teaches a net, and the net in turn guides the search. Training on the tree
+  policy works better than training only on the chosen move.
 - **Hidden information**: open-loop MCTS (already used here) and re-sampling
   the hidden state on each iteration avoid over-optimism from planning against
   one fixed future.
