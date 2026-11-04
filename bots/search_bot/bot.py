@@ -25,6 +25,7 @@ TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
 RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 6, 5
 WIDENING, EXPLORATION = 3.0, 0.5
 VALUE_WEIGHT = 0.3
+POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT = 60, 4, 0.0
 
 
 class Observation(ctypes.Structure):
@@ -64,6 +65,8 @@ def load_library() -> ctypes.CDLL:
     ]
     library.sim_agent_load_net.restype = ctypes.c_int
     library.sim_agent_load_net.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_double]
+    library.sim_agent_set_waves.restype = None
+    library.sim_agent_set_waves.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_double]
     library.sim_agent_last_simulated.restype = ctypes.c_int
     library.sim_agent_last_simulated.argtypes = [ctypes.c_void_p]
     if library.sim_observation_size() != ctypes.sizeof(Observation):
@@ -80,6 +83,7 @@ class Bot:
         net_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "value_net.bin")
         if not LIBRARY.sim_agent_load_net(self.agent, net_path.encode(), VALUE_WEIGHT):
             print("Could not load the value network, playing without it", flush=True)
+        LIBRARY.sim_agent_set_waves(self.agent, POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT)
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []

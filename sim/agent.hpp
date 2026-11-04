@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "game.hpp"
+#include "policy_net.hpp"
 #include "value_net.hpp"
 
 namespace sim {
@@ -28,6 +30,21 @@ struct AgentConfig {
     double value_weight = 1;
     int net_cost = 3;            // Simulated ticks charged per evaluation, so tests stay fair on time.
 
+    // Ranks the root's actions, and steers visits there, as in AlphaZero. It can also
+    // name targets far from any dinosaur, which the usual action list leaves out.
+    PolicyNet* policy = nullptr;
+    double puct = 1;
+    int policy_targets = 30;     // How many of its favourite actions to add to the list.
+    double prior_floor = 0.1;    // Share of the prior spread over all actions, so none is ruled out.
+    int policy_cost = 1500;      // Simulated ticks charged per evaluation, so tests stay fair on time.
+
+    // Plans include waves at guessed tiles, drawn afresh each iteration. When the spawn
+    // area is small, a meteor timed for the wave's first tick can kill all of it.
+    bool plan_waves = false;
+    int pocket_limit = 60;       // Aim at the spawn area when it has at most this many tiles.
+    int pocket_targets = 4;      // How many of the best-covering tiles to add to the action list.
+    double pocket_weight = 0;    // Share of the next wave's best-case blast added to each leaf's value.
+
     // Experiments only: plan with information a live bot can't have.
     bool reveal_rows = false;
     bool reveal_rng = false;
@@ -48,7 +65,21 @@ public:
         config_.net = net;
         config_.value_weight = weight;
     }
+    void set_policy(PolicyNet* policy) { config_.policy = policy; }
+    void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {
+        config_.plan_waves = true;
+        config_.pocket_limit = pocket_limit;
+        config_.pocket_targets = pocket_targets;
+        config_.pocket_weight = pocket_weight;
+    }
     int last_simulated() const { return last_simulated_; }
+
+    // How the last MCTS search spread its visits over the root's actions.
+    struct RootVisit {
+        Action action;
+        int visits;
+    };
+    const std::vector<RootVisit>& root_visits() const { return root_visits_; }
 
 private:
     struct Choice {
@@ -61,6 +92,8 @@ private:
 
     AgentConfig config_;
     int last_simulated_ = 0;
+    int highest_id_ = 0;
+    std::vector<RootVisit> root_visits_;
 };
 
 }  // namespace sim

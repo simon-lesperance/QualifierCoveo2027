@@ -16,4 +16,9 @@ constexpr int kFeatureBytes = kChannels * kCells + kGlobals;
 // `tick` is the tick the state is about to play: the next action would be for this tick.
 void encode_features(const Game& game, int tick, uint8_t* out);
 
+// The policy network also sees where a wave would spawn, how many tiles that is, and
+// how long until the timer brings one. Everything here is visible to a live bot.
+constexpr int kPolicyBytes = kFeatureBytes + kCells + 2;
+void encode_policy_features(const Game& game, int tick, uint8_t* out);
+
 }  // namespace sim
