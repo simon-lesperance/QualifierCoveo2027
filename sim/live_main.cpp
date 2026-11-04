@@ -2,6 +2,8 @@
 //
 //   sim_live <games per biome> [--budget n] [--beam n] [--radius n] [--horizon n]
 //                              [--volcanoes n] [--samples n] [--threads n] [--first n]
+//                              [--reveal-rows 1] [--reveal-rng 1] [--reveal-waves 1]
+//                              [--shield 1] [--grid 1]
 
 #include <atomic>
 #include <cstdio>
@@ -26,10 +28,11 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
     sim::Terrain terrain(seed, biome);
     sim::Game game(terrain, seed);
     sim::Agent agent(config);
+    bool experiment = config.reveal_rows || config.reveal_rng || config.reveal_waves;
     int last_id = 0;
     for (int tick = 1; tick <= sim::kMaxTicks; tick++) {
         sim::Observation observation = game.observe(tick);
-        game.step(tick, agent.act(observation));
+        game.step(tick, agent.act(observation, experiment ? &game : nullptr));
         for (int i = 0; i < game.dino_count(); i++) last_id = std::max(last_id, game.dino(i).id);
     }
     return {game.score(), game.total_kills(), last_id};
@@ -57,6 +60,11 @@ int main(int argc, char** argv) {
         else if (name == "--samples") config.samples = value;
         else if (name == "--threads") threads = value;
         else if (name == "--first") first = value;
+        else if (name == "--reveal-rows") config.reveal_rows = value != 0;
+        else if (name == "--reveal-rng") config.reveal_rng = value != 0;
+        else if (name == "--reveal-waves") config.reveal_waves = value != 0;
+        else if (name == "--shield") config.shield = value != 0;
+        else if (name == "--grid") config.grid = value != 0;
     }
 
     std::vector<Result> results(games * 3);

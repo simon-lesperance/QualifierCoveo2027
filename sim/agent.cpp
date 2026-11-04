@@ -34,6 +34,11 @@ void list_actions(const Game& game, const AgentConfig& config, std::vector<Actio
                 }
             }
         }
+        if (config.grid) {
+            for (int row = 1; row < kHeight; row += 3) {
+                for (int column = 1; column < kWidth; column += 3) wanted[row * kWidth + column] = true;
+            }
+        }
         for (int cell = 0; cell < kCells; cell++) {
             if (!wanted[cell]) continue;
             Action action;
@@ -139,9 +144,15 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
     return best;
 }
 
-Action Agent::act(const Observation& observation) {
+Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
-    Game root = Game::from_observation(observation, static_cast<uint32_t>(observation.tick) * 2654435761u);
+    uint32_t rng_seed = static_cast<uint32_t>(observation.tick) * 2654435761u;
+    Game root = Game::from_observation(observation, rng_seed);
+    if (truth != nullptr) {
+        root = *truth;
+        root.hide(!config_.reveal_rows, !config_.reveal_rng, !config_.reveal_waves, rng_seed);
+        root.set_spawn_shield(config_.shield);
+    }
     if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return Action{};
 
     double deadline = config_.time_budget_ms > 0 ? now_ms() + config_.time_budget_ms : 0;
