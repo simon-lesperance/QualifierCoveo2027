@@ -45,6 +45,17 @@ struct AgentConfig {
     int pocket_targets = 4;      // How many of the best-covering tiles to add to the action list.
     double pocket_weight = 0;    // Share of the next wave's best-case blast added to each leaf's value.
 
+    // With no volcano active, tries every mountain with lava alone, and triggers the one
+    // that leaves the smallest spawn area if that is worth at least volcano_threshold.
+    bool volcano_plan = false;
+    int volcano_lookahead = 40;
+    double volcano_threshold = 1000;
+
+    // Offers search the mountains whose lava would leave the smallest spawn area after
+    // volcano_rank_ticks, instead of an even spread of them.
+    bool volcano_rank = false;
+    int volcano_rank_ticks = 30;
+
     // Experiments only: plan with information a live bot can't have.
     bool reveal_rows = false;
     bool reveal_rng = false;
@@ -52,6 +63,10 @@ struct AgentConfig {
     bool shield = false;         // Plans can't count on spawn-tick kills.
     bool grid = false;           // Also consider empty ground, to meet a wave before it spawns.
 };
+
+// Average points a meteor on a new wave could expect over the next `lookahead` ticks,
+// after playing `first`, with lava alone. Dinosaurs are removed from a copy of the game.
+double volcano_outlook(Game game, int tick, const Action& first, int lookahead, int limit);
 
 // Plans from what the server sends: no seed, no future rows, no knowledge of spawns.
 class Agent {
@@ -87,12 +102,15 @@ private:
         double value;
     };
 
+    bool pick_volcano(const Game& root, int tick, Action& action);
+    void rank_volcanoes(const Game& root, int tick);
     Choice search(const Game& root, int tick, int budget, double deadline_ms);
     Choice search_mcts(const Game& root, int tick, int budget, double deadline_ms);
 
     AgentConfig config_;
     int last_simulated_ = 0;
     int highest_id_ = 0;
+    std::vector<Action> ranked_volcanoes_;
     std::vector<RootVisit> root_visits_;
 };
 

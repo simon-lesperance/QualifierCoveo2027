@@ -12,7 +12,7 @@ public:
     // Reads the exported file: three int32 sizes, then float32 parameters.
     bool load(const char* path);
 
-    // Takes bytes from encode_features. Returns thousands of points.
+    // Takes bytes from encode_policy_features. Returns thousands of points.
     float evaluate(const uint8_t* features) const;
 
 private:

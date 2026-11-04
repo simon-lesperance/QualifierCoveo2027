@@ -90,6 +90,13 @@ public:
     // dinosaur id seen so far, which gives the wave's place in the cycle.
     void enable_waves(int tick, int highest_id);
 
+    // Leaves only the terrain, lava, meteors and volcano, to look far ahead cheaply.
+    void clear_dinosaurs() {
+        dino_count_ = 0;
+        waves_enabled_ = false;
+    }
+    void clear_volcanoes() { volcano_count_ = 0; }
+
     // What the server would send at the start of `tick`.
     Observation observe(int tick) const;
 

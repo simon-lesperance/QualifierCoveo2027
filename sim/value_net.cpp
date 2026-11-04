@@ -13,6 +13,11 @@ namespace {
 constexpr int kSize1 = 10;  // Grid side after the first convolution.
 constexpr int kSize2 = 5;   // After the second.
 
+// The usual planes plus one for tiles a wave can't spawn on, and the usual globals
+// plus the spawn area's size and the time until the next timed wave.
+constexpr int kInputChannels = kChannels + 1;
+constexpr int kInputGlobals = kGlobals + 2;
+
 bool read_floats(std::FILE* file, float* out, size_t count) {
     return std::fread(out, sizeof(float), count, file) == count;
 }
@@ -29,17 +34,17 @@ bool ValueNet::load(const char* path) {
         first_ = sizes[0];
         second_ = sizes[1];
         hidden_ = sizes[2];
-        flat_ = second_ * kSize2 * kSize2 + kGlobals;
+        flat_ = second_ * kSize2 * kSize2 + kInputGlobals;
 
         // PyTorch stores convolutions as [out][in][kernel row][kernel column]. Both are
         // reordered so the out index is innermost, which makes each update one vector.
-        std::vector<float> raw(first_ * kChannels * 9);
+        std::vector<float> raw(first_ * kInputChannels * 9);
         ok = read_floats(file, raw.data(), raw.size());
         conv1_weights_.resize(raw.size());
         for (int out = 0; ok && out < first_; out++) {
-            for (int in = 0; in < kChannels; in++) {
+            for (int in = 0; in < kInputChannels; in++) {
                 for (int kernel = 0; kernel < 9; kernel++) {
-                    conv1_weights_[(in * 9 + kernel) * first_ + out] = raw[(out * kChannels + in) * 9 + kernel];
+                    conv1_weights_[(in * 9 + kernel) * first_ + out] = raw[(out * kInputChannels + in) * 9 + kernel];
                 }
             }
         }
@@ -85,8 +90,10 @@ float ValueNet::evaluate(const uint8_t* features) const {
     for (int i = 0; i < kSize1 * kSize1; i++) std::memcpy(layer1 + i * first_, conv1_bias_.data(), first_ * sizeof(float));
 
     // The input is mostly zeros, so only non-zero bytes do any work.
-    for (int channel = 0; channel < kChannels; channel++) {
-        const uint8_t* plane = features + channel * kCells;
+    uint8_t no_spawn[kCells];  // Inverted, so the usual large spawn area costs nothing.
+    for (int cell = 0; cell < kCells; cell++) no_spawn[cell] = 255 - features[kFeatureBytes + cell];
+    for (int channel = 0; channel < kInputChannels; channel++) {
+        const uint8_t* plane = channel < kChannels ? features + channel * kCells : no_spawn;
         const float* channel_weights = conv1_weights_.data() + channel * 9 * first_;
         for (int cell = 0; cell < kCells; cell++) {
             if (plane[cell] == 0) continue;
@@ -143,9 +150,10 @@ float ValueNet::evaluate(const uint8_t* features) const {
         }
     }
     const uint8_t* globals = features + kChannels * kCells;
+    const uint8_t* extra_globals = features + kFeatureBytes + kCells - kGlobals;
     const float* global_weights = fc1_weights_.data() + (second_ * kSize2 * kSize2) * hidden_;
-    for (int g = 0; g < kGlobals; g++) {
-        float value = globals[g] / 255.0f;
+    for (int g = 0; g < kInputGlobals; g++) {
+        float value = (g < kGlobals ? globals[g] : extra_globals[g]) / 255.0f;
         for (int i = 0; i < hidden_; i++) hidden[i] += global_weights[g * hidden_ + i] * value;
     }
 

@@ -14,10 +14,12 @@ import numpy as np
 import torch
 from torch import nn
 
-CHANNELS = 14
-GLOBALS = 5
 CELLS = 400
-FEATURE_BYTES = CHANNELS * CELLS + GLOBALS
+BASE_CHANNELS, BASE_GLOBALS = 14, 5
+BASE_BYTES = BASE_CHANNELS * CELLS + BASE_GLOBALS
+FEATURE_BYTES = BASE_BYTES + CELLS + 2  # As written by encode_policy_features.
+CHANNELS = BASE_CHANNELS + 1  # Plus the tiles a wave can't spawn on.
+GLOBALS = BASE_GLOBALS + 2
 TICKS = 1001
 RECORD = np.dtype([("tick", "<i4"), ("features", "u1", FEATURE_BYTES)])
 
@@ -63,8 +65,9 @@ def load_games(folders: list[Path], window: int, group_size: int, group_bonus: f
 
 def split_inputs(batch: np.ndarray, device: str):
     data = torch.from_numpy(batch).to(device).float() / 255.0
-    grid = data[:, : CHANNELS * CELLS].view(-1, CHANNELS, 20, 20)
-    return grid, data[:, CHANNELS * CELLS :]
+    no_spawn = 1 - data[:, BASE_BYTES : BASE_BYTES + CELLS]
+    grid = torch.cat([data[:, : BASE_CHANNELS * CELLS], no_spawn], dim=1).view(-1, CHANNELS, 20, 20)
+    return grid, torch.cat([data[:, BASE_CHANNELS * CELLS : BASE_BYTES], data[:, BASE_BYTES + CELLS :]], dim=1)
 
 
 def evaluate(model: nn.Module, features: np.ndarray, targets: np.ndarray, device: str):

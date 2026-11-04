@@ -28,6 +28,10 @@ struct Result {
 };
 
 // log_folder, if set, gets one csv per game: tick, score, kills, alive, lava tiles, spawn tiles.
+int frame_every = 0;
+int frame_first = 0;
+int frame_last = 0;
+
 Result play(const char* biome, const std::string& seed, const sim::AgentConfig& config, const std::string& log_folder) {
     sim::Terrain terrain(seed, biome);
     sim::Game game(terrain, seed);
@@ -40,6 +44,28 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
         sim::Observation observation = game.observe(tick);
         game.step(tick, agent.act(observation, experiment ? &game : nullptr));
         for (int i = 0; i < game.dino_count(); i++) last_id = std::max(last_id, game.dino(i).id);
+        if (frame_every > 0 && tick >= frame_first && tick <= frame_last && tick % frame_every == 0) {
+            std::printf("tick %d score %d spawn %d origin %d", tick, game.score(), game.spawn_tiles(), game.origin_y());
+            for (int i = 0; i < game.volcano_count(); i++) std::printf(" volcano (%d,%d)", game.volcano(i).x, game.volcano(i).y - game.origin_y());
+            std::printf("\n");
+            uint8_t mask[sim::kCells];
+            game.spawn_mask(mask);
+            for (int row = 0; row < sim::kHeight; row++) {
+                for (int column = 0; column < sim::kWidth; column++) {
+                    int cell = row * sim::kWidth + column;
+                    char symbol = static_cast<char>('a' + game.elevation(cell));
+                    if (game.flags(cell) & sim::kImpassable) symbol = '#';
+                    else if (game.flags(cell) & sim::kLava) symbol = '~';
+                    else if (game.flags(cell) & sim::kMountain) symbol = '^';
+                    else if (mask[cell]) symbol = static_cast<char>('A' + game.elevation(cell));
+                    for (int i = 0; i < game.dino_count(); i++) {
+                        if (game.dino(i).cell == cell) symbol = '@';
+                    }
+                    std::putchar(symbol);
+                }
+                std::putchar('\n');
+            }
+        }
         if (log != nullptr) {
             int lava = 0;
             for (int cell = 0; cell < sim::kCells; cell++) lava += (game.flags(cell) & sim::kLava) != 0;
@@ -81,6 +107,11 @@ int main(int argc, char** argv) {
         else if (name == "--puct") config.puct = std::atof(argv[i + 1]);
         else if (name == "--plan-waves") config.plan_waves = value != 0;
         else if (name == "--pocket-limit") config.pocket_limit = value;
+        else if (name == "--volcano-plan") config.volcano_plan = value != 0;
+        else if (name == "--volcano-rank") config.volcano_rank = value != 0;
+        else if (name == "--volcano-rank-ticks") config.volcano_rank_ticks = value;
+        else if (name == "--volcano-lookahead") config.volcano_lookahead = value;
+        else if (name == "--volcano-threshold") config.volcano_threshold = std::atof(argv[i + 1]);
         else if (name == "--pocket-weight") config.pocket_weight = std::atof(argv[i + 1]);
         else if (name == "--pocket-targets") config.pocket_targets = value;
         else if (name == "--policy-cost") config.policy_cost = value;
@@ -88,6 +119,9 @@ int main(int argc, char** argv) {
         else if (name == "--prior-floor") config.prior_floor = std::atof(argv[i + 1]);
         else if (name == "--policy") policy_path = argv[i + 1];
         else if (name == "--log") log_folder = argv[i + 1];
+        else if (name == "--frame-every") frame_every = value;
+        else if (name == "--frame-first") frame_first = value;
+        else if (name == "--frame-last") frame_last = value;
         else if (name == "--biome") biome_filter = argv[i + 1];
         else if (name == "--net") {
             if (!net.load(argv[i + 1])) {

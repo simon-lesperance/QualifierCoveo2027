@@ -13,6 +13,7 @@
 //   then int32 sample count, and for each sample int32 tick + the feature bytes.
 // Targets are computed at training time, so they can change without new games.
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -26,7 +27,7 @@
 
 namespace {
 
-using sim::kFeatureBytes;
+using sim::kPolicyBytes;
 using sim::kMaxTicks;
 
 constexpr int kDefaultBudget = 3000;
@@ -42,15 +43,18 @@ void play(const std::string& biome, const std::string& seed, const std::string& 
     std::vector<int32_t> ticks;
     std::vector<uint8_t> features;
     uint32_t noise = noise_seed;
+    int highest_id = 0;
 
     for (int tick = 1; tick <= kMaxTicks; tick++) {
         sim::Observation observation = game.observe(tick);
+        for (int i = 0; i < observation.dino_count; i++) highest_id = std::max(highest_id, observation.dino_id[i]);
         if (tick % every == 0 && tick + config.horizon <= kMaxTicks) {
             sim::Game leaf = sim::Game::from_observation(observation, static_cast<uint32_t>(tick));
+            leaf.enable_waves(tick, highest_id);
             for (int future = tick; future < tick + config.horizon; future++) leaf.step(future, sim::Action{});
             ticks.push_back(tick + config.horizon);
-            features.resize(features.size() + kFeatureBytes);
-            sim::encode_features(leaf, tick + config.horizon, features.data() + features.size() - kFeatureBytes);
+            features.resize(features.size() + kPolicyBytes);
+            sim::encode_policy_features(leaf, tick + config.horizon, features.data() + features.size() - kPolicyBytes);
         }
         sim::Action action = agent.act(observation);
         noise = noise * 1664525u + 1013904223u;
@@ -67,7 +71,7 @@ void play(const std::string& biome, const std::string& seed, const std::string& 
     file.write(reinterpret_cast<const char*>(&count), sizeof(count));
     for (int i = 0; i < count; i++) {
         file.write(reinterpret_cast<const char*>(&ticks[i]), sizeof(int32_t));
-        file.write(reinterpret_cast<const char*>(features.data() + i * kFeatureBytes), kFeatureBytes);
+        file.write(reinterpret_cast<const char*>(features.data() + i * kPolicyBytes), kPolicyBytes);
     }
 }
 
@@ -91,6 +95,7 @@ int main(int argc, char** argv) {
     config.mcts = true;
     config.radius = 2;
     config.mcts_depth = 5;
+    config.plan_waves = true;
     config.sim_budget = kDefaultBudget;
     for (int i = 3; i + 1 < argc; i += 2) {
         std::string name = argv[i];
