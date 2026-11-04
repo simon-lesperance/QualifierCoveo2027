@@ -15,6 +15,13 @@ struct AgentConfig {
     int volcanoes = 6;
     int samples = 1;             // Independent guesses at the hidden RNG, which then vote.
 
+    // Open-loop MCTS instead of beam search. Every iteration guesses the hidden
+    // tie-breaks afresh, so values average over them.
+    bool mcts = false;
+    double exploration = 0.5;
+    int mcts_depth = 3;          // Decisions per iteration before the rollout.
+    double widening = 3;         // A node may try 1 + widening * sqrt(visits) actions.
+
     // Experiments only: plan with information a live bot can't have.
     bool reveal_rows = false;
     bool reveal_rng = false;
@@ -40,6 +47,7 @@ private:
     };
 
     Choice search(const Game& root, int tick, int budget, double deadline_ms);
+    Choice search_mcts(const Game& root, int tick, int budget, double deadline_ms);
 
     AgentConfig config_;
     int last_simulated_ = 0;

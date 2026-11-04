@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <unordered_set>
 #include <vector>
@@ -144,6 +145,146 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
     return best;
 }
 
+namespace {
+
+// Actions most likely to matter first, so widening reaches them early.
+double action_promise(const Game& game, const Action& action) {
+    if (action.type == Action::Type::None) return 0.5;
+    if (action.type == Action::Type::TriggerVolcano) return 1;
+    int count = 0;
+    constexpr int kSquared = kMeteorRadius * kMeteorRadius;
+    for (int i = 0; i < game.dino_count(); i++) {
+        int dx = game.dino(i).cell % kWidth - action.x;
+        int dy = game.dino(i).cell / kWidth + game.origin_y() - action.y;
+        if (dx * dx + dy * dy <= kSquared) count++;
+    }
+    return count;
+}
+
+struct Edge {
+    Action action;
+    int visits = 0;
+    double total = 0;
+    int child = -1;
+};
+
+struct TreeNode {
+    bool opened = false;
+    int visits = 0;
+    int next_untried = 0;
+    std::vector<Action> untried;
+    std::vector<Edge> edges;
+};
+
+}  // namespace
+
+Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double deadline_ms) {
+    std::vector<TreeNode> tree(1);
+    tree.reserve(4096);
+    std::vector<Action> actions;
+    double best_reward = 1;
+    uint32_t iteration = 0;
+
+    while (budget > 0 && (deadline_ms <= 0 || now_ms() < deadline_ms)) {
+        Game game = root;
+        game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + iteration * 40503u);
+        iteration++;
+
+        int path_node[8];
+        int path_edge[8];
+        int path_length = 0;
+        int node = 0;
+        int turn = tick;
+
+        for (int depth = 0; depth < config_.mcts_depth && turn <= kMaxTicks; depth++) {
+            // With every meteor in the air there is nothing to decide.
+            if (game.meteor_count() >= kMaxMeteors && game.volcano_count() >= kMaxVolcanoes) {
+                game.step(turn++, Action{});
+                budget--;
+                continue;
+            }
+
+            if (!tree[node].opened) {
+                list_actions(game, config_, actions);
+                std::stable_sort(actions.begin(), actions.end(), [&](const Action& a, const Action& b) {
+                    return action_promise(game, a) > action_promise(game, b);
+                });
+                tree[node].untried = actions;
+                tree[node].opened = true;
+            }
+
+            int edge_index = -1;
+            size_t allowed = 1 + static_cast<size_t>(config_.widening * std::sqrt(static_cast<double>(tree[node].visits)));
+            if (tree[node].edges.size() < allowed &&
+                tree[node].next_untried < static_cast<int>(tree[node].untried.size())) {
+                Edge edge;
+                edge.action = tree[node].untried[tree[node].next_untried++];
+                tree[node].edges.push_back(edge);
+                edge_index = static_cast<int>(tree[node].edges.size()) - 1;
+            } else {
+                double log_visits = std::log(tree[node].visits + 1.0);
+                double best_score = -1e18;
+                for (int i = 0; i < static_cast<int>(tree[node].edges.size()); i++) {
+                    const Edge& edge = tree[node].edges[i];
+                    double score = edge.visits == 0
+                                       ? 1e17
+                                       : edge.total / edge.visits / best_reward +
+                                             config_.exploration * std::sqrt(log_visits / edge.visits);
+                    if (score > best_score) {
+                        best_score = score;
+                        edge_index = i;
+                    }
+                }
+            }
+
+            path_node[path_length] = node;
+            path_edge[path_length] = edge_index;
+            path_length++;
+
+            Action action = tree[node].edges[edge_index].action;
+            if (!game.step(turn, action)) game.step(turn, Action{});
+            budget--;
+            turn++;
+
+            int child = tree[node].edges[edge_index].child;
+            if (child < 0) {
+                child = static_cast<int>(tree.size());
+                tree[node].edges[edge_index].child = child;
+                tree.emplace_back();
+            }
+            node = child;
+        }
+
+        int last = std::min(kMaxTicks, turn - 1 + config_.horizon);
+        for (int future = turn; future <= last; future++) {
+            game.step(future, Action{});
+            budget--;
+        }
+        last_simulated_ = config_.sim_budget - budget;
+
+        double reward = game.score() - root.score();
+        best_reward = std::max(best_reward, reward);
+        tree[0].visits++;
+        for (int i = 0; i < path_length; i++) {
+            Edge& edge = tree[path_node[i]].edges[path_edge[i]];
+            edge.visits++;
+            edge.total += reward;
+            if (i > 0) tree[path_node[i]].visits++;
+        }
+        if (path_length == 0) break;  // Nothing to decide this tick.
+    }
+
+    Choice best{Action{}, -1};
+    int most_visits = -1;
+    for (const Edge& edge : tree[0].edges) {
+        if (edge.visits > most_visits) {
+            most_visits = edge.visits;
+            best = {edge.action, edge.visits > 0 ? edge.total / edge.visits : 0};
+        }
+    }
+    return best;
+}
+
 Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
     uint32_t rng_seed = static_cast<uint32_t>(observation.tick) * 2654435761u;
@@ -156,6 +297,7 @@ Action Agent::act(const Observation& observation, const Game* truth) {
     if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return Action{};
 
     double deadline = config_.time_budget_ms > 0 ? now_ms() + config_.time_budget_ms : 0;
+    if (config_.mcts) return search_mcts(root, observation.tick, config_.sim_budget, deadline).action;
     if (config_.samples <= 1) return search(root, observation.tick, config_.sim_budget, deadline).action;
 
     // Each sample guesses the hidden tie-breaks differently, and the best-backed move wins.

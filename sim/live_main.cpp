@@ -4,6 +4,7 @@
 //                              [--volcanoes n] [--samples n] [--threads n] [--first n]
 //                              [--reveal-rows 1] [--reveal-rng 1] [--reveal-waves 1]
 //                              [--shield 1] [--grid 1]
+//                              [--mcts 1] [--exploration x] [--depth n] [--widening x]
 
 #include <atomic>
 #include <cstdio>
@@ -60,6 +61,10 @@ int main(int argc, char** argv) {
         else if (name == "--samples") config.samples = value;
         else if (name == "--threads") threads = value;
         else if (name == "--first") first = value;
+        else if (name == "--mcts") config.mcts = value != 0;
+        else if (name == "--exploration") config.exploration = std::atof(argv[i + 1]);
+        else if (name == "--depth") config.mcts_depth = value;
+        else if (name == "--widening") config.widening = std::atof(argv[i + 1]);
         else if (name == "--reveal-rows") config.reveal_rows = value != 0;
         else if (name == "--reveal-rng") config.reveal_rng = value != 0;
         else if (name == "--reveal-waves") config.reveal_waves = value != 0;
