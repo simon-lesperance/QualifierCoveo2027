@@ -31,3 +31,12 @@ wandb/
 .idea/
 .vscode/
 .DS_Store
+
+# Native libraries built for the bot
+*.so
+*.dll
+
+# Simulator build output
+build/
+*.pdb
+*.lib
