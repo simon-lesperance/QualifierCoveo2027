@@ -32,7 +32,8 @@ Action meteor_at(const Game& game, int cell) {
 struct Best {
     int kills = 0;
     int points = 0;
-    int total = 0;
+    int total_kills = 0;
+    int total_points = 0;
     int a = -1, b = -1, c = -1;
 };
 
@@ -95,23 +96,23 @@ int main(int argc, char** argv) {
                                 peak = copy.kills_this_tick();
                             }
                         }
-                        int total = copy.score() - start_score;
-                        if (total > local.total) {
-                            local = {peak, peak_points, total, cells[a], cells[b], cells[c]};
-                            local.kills = peak;
+                        int total_kills = copy.total_kills() - start_kills;
+                        int total_points = copy.score() - start_score;
+                        if (total_points > local.total_points) {
+                            local = {peak, peak_points, total_kills, total_points, cells[a], cells[b], cells[c]};
                         }
-                        (void)start_kills;
                     }
                 }
             }
             std::lock_guard<std::mutex> guard(lock);
-            if (local.total > best.total) best = local;
+            if (local.total_points > best.total_points) best = local;
         };
         std::vector<std::thread> pool;
         for (int i = 0; i < threads; i++) pool.emplace_back(work);
         for (std::thread& thread : pool) thread.join();
 
-        std::printf("%4d  %6d  %10d  %15d  %16d  %11s  %12d\n", wait, spread, size, best.kills, best.points, "", best.total);
+        std::printf("%4d  %6d  %10d  %15d  %16d  %11d  %12d\n", wait, spread, size, best.kills, best.points,
+                    best.total_kills, best.total_points);
         std::fflush(stdout);
     }
     return 0;

@@ -74,15 +74,19 @@ void list_actions(const Game& game, int turn, const AgentConfig& config, std::ve
             if (game.flags(cell) & kMountain) mountains[count++] = cell;
         }
         if (config.volcano_near_dinos && game.dino_count() > 0) {
-            auto distance = [&](int cell) {
+            int distances[kCells] = {};
+            for (int i = 0; i < count; i++) {
+                int cell = mountains[i];
                 int best = 1000;
-                for (int i = 0; i < game.dino_count(); i++) {
-                    int other = game.dino(i).cell;
-                    best = std::min(best, std::abs(cell % kWidth - other % kWidth) + std::abs(cell / kWidth - other / kWidth));
+                for (int dino = 0; dino < game.dino_count(); dino++) {
+                    int other = game.dino(dino).cell;
+                    best = std::min(best, std::abs(cell % kWidth - other % kWidth) +
+                                              std::abs(cell / kWidth - other / kWidth));
                 }
-                return best;
-            };
-            std::stable_sort(mountains, mountains + count, [&](int a, int b) { return distance(a) < distance(b); });
+                distances[cell] = best;
+            }
+            std::stable_sort(mountains, mountains + count,
+                             [&](int a, int b) { return distances[a] < distances[b]; });
             count = std::min(count, config.volcanoes);
         }
         int stride = config.volcano_near_dinos ? 1 : std::max(1, count / config.volcanoes);
@@ -177,17 +181,33 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
 namespace {
 
 // Actions most likely to matter first, so widening reaches them early.
-double action_promise(const Game& game, const Action& action) {
-    if (action.type == Action::Type::None) return 0.5;
-    if (action.type == Action::Type::TriggerVolcano) return 1;
-    int count = 0;
+void sort_actions(const Game& game, std::vector<Action>& actions) {
+    int promises[kCells] = {};
     constexpr int kSquared = kMeteorRadius * kMeteorRadius;
     for (int i = 0; i < game.dino_count(); i++) {
-        int dx = game.dino(i).cell % kWidth - action.x;
-        int dy = game.dino(i).cell / kWidth + game.origin_y() - action.y;
-        if (dx * dx + dy * dy <= kSquared) count++;
+        int row = game.dino(i).cell / kWidth;
+        int column = game.dino(i).cell % kWidth;
+        for (int dy = -kMeteorRadius; dy <= kMeteorRadius; dy++) {
+            for (int dx = -kMeteorRadius; dx <= kMeteorRadius; dx++) {
+                int target_row = row + dy;
+                int target_column = column + dx;
+                if (dx * dx + dy * dy <= kSquared && target_row >= 0 && target_row < kHeight &&
+                    target_column >= 0 && target_column < kWidth) {
+                    promises[target_row * kWidth + target_column]++;
+                }
+            }
+        }
     }
-    return count;
+    auto promise = [&](const Action& action) {
+        if (action.type == Action::Type::None) return 0.5;
+        if (action.type == Action::Type::TriggerVolcano) return 1.0;
+        int row = action.y - game.origin_y();
+        return row >= 0 && row < kHeight && action.x >= 0 && action.x < kWidth
+                   ? static_cast<double>(promises[row * kWidth + action.x])
+                   : 0.0;
+    };
+    std::stable_sort(actions.begin(), actions.end(),
+                     [&](const Action& a, const Action& b) { return promise(a) > promise(b); });
 }
 
 struct Edge {
@@ -235,11 +255,13 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             }
 
             if (!tree[node].opened) {
-                list_actions(game, turn, config_, actions);
-                if (config_.aim_predicted) budget -= kMeteorDelay;
-                std::stable_sort(actions.begin(), actions.end(), [&](const Action& a, const Action& b) {
-                    return action_promise(game, a) > action_promise(game, b);
-                });
+                AgentConfig targeting = config_;
+                targeting.aim_predicted = config_.aim_predicted && node == 0;
+                list_actions(game, turn, targeting, actions);
+                if (targeting.aim_predicted && game.meteor_count() < kMaxMeteors) {
+                    budget -= std::min(kMeteorDelay, kMaxTicks - turn + 1);
+                }
+                sort_actions(game, actions);
                 tree[node].untried = actions;
                 tree[node].opened = true;
             }

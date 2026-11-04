@@ -117,7 +117,9 @@ Build upload zips with `make_zip.py`; it validates the ZIP and lists its content
 ## Git workflow
 
 - `main` holds important milestones only.
-- `develop` is the working branch.
-- Branch from `develop` for each new feature or bot, and merge back into `develop` when it's done.
+- Commit ongoing optimization work only on `rich/dev`, with signing disabled
+  (`git commit --no-gpg-sign`).
+- Review remote feature branches for relevant experiments; integrate selected
+  changes on `rich/dev` rather than committing on those feature branches.
 
 Never commit keys, tokens, `.env` files, or the launcher binary.

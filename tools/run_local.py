@@ -17,9 +17,12 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "localRunner" / "blitz-challenge-linux"
+LAUNCHER = ROOT / "localRunner" / (
+    "blitz-challenge-win.exe" if sys.platform == "win32" else "blitz-challenge-linux"
+)
 BIOMES = ["deep_crevasse", "mountain_range", "volcanic_plains"]
 REPLAY_RE = re.compile(r"--biome (\S+) --randomSeed (\S+)")
+BUDGET_RE = re.compile(r"simulated median=(\d+).*?move_ms max=([\d.]+)")
 
 
 def play(bot_dir: Path, biome: str | None, seed: str | None, tick_ms: int) -> dict:
@@ -54,6 +57,7 @@ def play(bot_dir: Path, biome: str | None, seed: str | None, tick_ms: int) -> di
 
         text = log_path.read_text(encoding="utf8", errors="replace")
         replay = REPLAY_RE.search(text)
+        budgets = [(int(median), float(max_ms)) for median, max_ms in BUDGET_RE.findall(bot.stdout)]
         results = json.loads(record.read_text(encoding="utf8"))["gameResults"]
         result = results[0] if isinstance(results, list) else results
         return {
@@ -63,6 +67,8 @@ def play(bot_dir: Path, biome: str | None, seed: str | None, tick_ms: int) -> di
             "timedOut": result.get("didTimeout"),
             "late": text.count("No command was received in time"),
             "botErrors": bot.stderr.count("Errors during last tick"),
+            "medianSimulated": sorted(item[0] for item in budgets)[len(budgets) // 2] if budgets else None,
+            "maxMoveMs": max((item[1] for item in budgets), default=None),
         }
 
 

@@ -79,6 +79,46 @@ work should gather more varied data and validate on a larger paired cohort.
 The launcher test was not run because its binary is unavailable in
 `localRunner/`.
 
+## Target-generation experiments at the local deadline
+
+The `feature/better-targets` experiment combines meteor candidates around
+predicted dinosaur positions with volcano candidates ranked by nearest dinosaur.
+At 6,500 simulated ticks per move, 10 paired seeds per biome gave overall means
+of approximately 41,520 baseline and 43,887 combined (+5.7%). That fixed-work
+result did not transfer to the launcher's 95 ms search deadline: on `live-26`,
+combined targeting lost in all three biomes.
+
+To reduce overhead, mountain distances are now computed once per candidate
+instead of in the sorting comparator. Meteor priority is also precomputed per
+cell, preserving the previous stable ordering. MCTS prediction is restricted
+to the root; deeper nodes retain current-position targets.
+
+Launcher results on `bench-26`, one game per biome and variant, with the
+precomputed sorting in every variant:
+
+| Variant | deep_crevasse | mountain_range | volcanic_plains | Overall mean |
+|---|---:|---:|---:|---:|
+| Current-position baseline | 57,932 | 41,783 | 49,606 | 49,774 |
+| Prediction at every node + nearby volcanoes | 55,633 | 37,764 | 45,740 | 46,379 |
+| Root-only prediction + nearby volcanoes | 50,309 | 47,084 | 52,210 | 49,868 |
+
+All nine games finished without late ticks or reported bot errors; maximum
+reported move times were 95.3-95.7 ms. Root-only prediction recovers the lost
+throughput in deep crevasse (median simulated work 25,726 versus 23,974 for
+every-node prediction), but its score is still mixed across biomes. Wall-clock
+search is not deterministic even with fixed map seeds. A single seed per biome
+and a +0.2% overall difference are not evidence of a reliable improvement.
+
+Decision: retain baseline defaults. Set `BOT_AIM_PREDICTED=1` and
+`BOT_VOLCANO_NEAR=1` to test the root-only combined variant with
+`tools/benchmark_bot.py`. The 200,000-point target remains unmet.
+The integrated simulator matched every tick of 12 launcher games, including
+the boundary/cap action probes from `rich/dev`.
+
+The remote value-network variant was also screened with combined targeting:
+on four paired seeds per biome it scored 43,008 overall versus 44,559 without
+the net (weight 0.3). It remains unintegrated.
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT

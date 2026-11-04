@@ -29,6 +29,10 @@ SIM_EXPORT void sim_agent_destroy(void* agent) {
     delete static_cast<sim::Agent*>(agent);
 }
 
+SIM_EXPORT void sim_agent_set_targeting(void* agent, int aim_predicted, int volcano_near_dinos) {
+    static_cast<sim::Agent*>(agent)->set_targeting(aim_predicted != 0, volcano_near_dinos != 0);
+}
+
 // Writes the chosen action: type 0 none, 1 meteor, 2 volcano.
 SIM_EXPORT void sim_agent_act(void* agent, const sim::Observation* observation, double time_ms, int* type, int* x, int* y) {
     auto* instance = static_cast<sim::Agent*>(agent);

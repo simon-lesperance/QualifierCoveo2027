@@ -24,6 +24,8 @@ SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus
 TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
 RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 6, 5
 WIDENING, EXPLORATION = 3.0, 0.5
+AIM_PREDICTED = os.environ.get("BOT_AIM_PREDICTED", "0") == "1"
+VOLCANO_NEAR_DINOS = os.environ.get("BOT_VOLCANO_NEAR", "0") == "1"
 
 
 class Observation(ctypes.Structure):
@@ -56,6 +58,8 @@ def load_library() -> ctypes.CDLL:
     library = ctypes.CDLL(os.path.join(os.path.dirname(os.path.abspath(__file__)), name))
     library.sim_agent_create.restype = ctypes.c_void_p
     library.sim_agent_create.argtypes = [ctypes.c_int] * 4 + [ctypes.c_double] * 2
+    library.sim_agent_set_targeting.restype = None
+    library.sim_agent_set_targeting.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
     library.sim_agent_act.restype = None
     library.sim_agent_act.argtypes = [
         ctypes.c_void_p, ctypes.POINTER(Observation), ctypes.c_double,
@@ -74,6 +78,7 @@ LIBRARY = load_library()
 class Bot:
     def __init__(self):
         self.agent = LIBRARY.sim_agent_create(RADIUS, HORIZON, VOLCANOES, DEPTH, WIDENING, EXPLORATION)
+        LIBRARY.sim_agent_set_targeting(self.agent, AIM_PREDICTED, VOLCANO_NEAR_DINOS)
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []

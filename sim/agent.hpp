@@ -26,7 +26,7 @@ struct AgentConfig {
     // Where to aim. A meteor lands kMeteorDelay ticks later, so targets can be placed
     // around where dinosaurs are predicted to be then, as well as where they are now.
     bool aim_current = true;
-    bool aim_predicted = false;
+    bool aim_predicted = false;  // MCTS limits prediction to root candidates.
     bool volcano_near_dinos = false;  // Rank volcanoes by distance to dinosaurs, not by map order.
 
     // Scores what each MCTS iteration leaves behind, on top of the points it earned.
@@ -50,6 +50,10 @@ public:
     Action act(const Observation& observation, const Game* truth = nullptr);
 
     void set_time_budget(double ms) { config_.time_budget_ms = ms; }
+    void set_targeting(bool aim_predicted, bool volcano_near_dinos) {
+        config_.aim_predicted = aim_predicted;
+        config_.volcano_near_dinos = volcano_near_dinos;
+    }
     int last_simulated() const { return last_simulated_; }
 
 private:

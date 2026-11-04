@@ -15,7 +15,16 @@ SIM = ROOT / "sim"
 BUILD = ROOT / "build"
 
 ENGINE_SOURCES = ["rng.cpp", "terrain.cpp", "game.cpp", "agent.cpp", "features.cpp", "value_net.cpp"]
-PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim_search": "search_main.cpp", "sim_live": "live_main.cpp", "sim_datagen": "datagen_main.cpp", "sim_nettest": "nettest_main.cpp"}
+PROGRAMS = {
+    "sim_replay": "replay_main.cpp",
+    "sim_bench": "bench_main.cpp",
+    "sim_search": "search_main.cpp",
+    "sim_live": "live_main.cpp",
+    "sim_datagen": "datagen_main.cpp",
+    "sim_nettest": "nettest_main.cpp",
+    "sim_patience": "patience_main.cpp",
+    "sim_triple": "triple_main.cpp",
+}
 
 # -ffp-contract=off keeps floating-point results identical to the JS engine's.
 FLAGS = ["-std=c++20", "-O2", "-DNDEBUG", "-ffp-contract=off", "-fno-sanitize=undefined", "-Wno-nullability-completeness"]
@@ -27,7 +36,7 @@ def zig_python() -> str:
     """Use this interpreter if it has ziglang, otherwise the project's .venv one."""
     if importlib.util.find_spec("ziglang") is not None:
         return sys.executable
-    venv_python = ROOT / ".venv" / "bin" / "python"
+    venv_python = ROOT / ".venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
     if venv_python.exists():
         return str(venv_python)
     sys.exit("ziglang not found: install requirements-dev.txt into .venv (see README)")

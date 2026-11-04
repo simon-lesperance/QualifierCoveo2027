@@ -18,7 +18,9 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "localRunner" / "blitz-challenge-linux"
+LAUNCHER = ROOT / "localRunner" / (
+    "blitz-challenge-win.exe" if sys.platform == "win32" else "blitz-challenge-linux"
+)
 SIM_REPLAY = ROOT / "build" / "sim_replay.exe"
 BOT = ROOT / "experiments" / "chaos_bot"
 STARTER = ROOT / "starterkit" / "python"

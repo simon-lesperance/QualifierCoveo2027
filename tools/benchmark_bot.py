@@ -31,7 +31,8 @@ def main() -> None:
             results[biome].append(row)
             print(
                 f"{biome:16} {seed:12} score={row['score']} "
-                f"timedOut={row['timedOut']} late={row['late']} botErrors={row['botErrors']}",
+                f"timedOut={row['timedOut']} late={row['late']} botErrors={row['botErrors']} "
+                f"medianSimulated={row['medianSimulated']} maxMoveMs={row['maxMoveMs']}",
                 flush=True,
             )
 
