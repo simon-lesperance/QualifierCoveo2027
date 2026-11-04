@@ -11,7 +11,7 @@ Bot for the Dinosaur Extinction challenge, a solo high-score game. The team's sc
 | `tools/` | Local game runner, simulator build and parity check, upload packaging |
 | `bots/` | Bots we upload. `search_bot` is the current one. Its library is git-ignored: build it with `tools/build_sim.py --linux` |
 | `experiments/` | Bots used for testing: `probe_bot` measures the server, `chaos_bot` and `replay_bot` check the simulator |
-| `localRunner/` | Not in git. Download the launcher from the dashboard and unpack it here |
+| `localRunner/` | Not in git. Put the Linux `blitz-challenge-linux` launcher here |
 
 ## Setup
 
@@ -19,10 +19,7 @@ Requires Python 3.13 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv venv --python 3.13 .venv
-```
-
-```bash
-uv pip install --python .venv/Scripts/python.exe -r requirements-dev.txt
+uv pip install --python .venv/bin/python -r requirements-dev.txt
 ```
 
 ## Common commands
@@ -30,53 +27,74 @@ uv pip install --python .venv/Scripts/python.exe -r requirements-dev.txt
 Play local games at server timing:
 
 ```bash
-.venv/Scripts/python.exe tools/run_local.py --games 3
+.venv/bin/python tools/run_local.py --games 3
 ```
 
 Test a specific bot on a fixed map:
 
 ```bash
-.venv/Scripts/python.exe tools/run_local.py --bot experiments/probe_bot --biome mountain_range --seed abc
+.venv/bin/python tools/run_local.py --bot experiments/probe_bot --biome mountain_range --seed abc
 ```
+
+Benchmark the current bot across fixed seeds in every biome:
+
+```bash
+.venv/bin/python tools/benchmark_bot.py --bot bots/search_bot --seeds 3
+```
+
+Compare the simulator's live-information MCTS with and without a trained value
+network on the same deterministic seeds:
+
+```bash
+.venv/bin/python tools/benchmark_value_net.py runs/nets/<name>/value_net.bin --games 2
+```
+
+The network file must first be produced by `tools/train_value.py`; training
+requires PyTorch in addition to the development dependencies. This simulator
+comparison is not a replacement for testing the bot under the launcher's tick
+budget.
 
 Package a bot folder, writing `<folder>.zip` next to it:
 
 ```bash
-.venv/Scripts/python.exe tools/make_zip.py experiments/probe_bot
+.venv/bin/python tools/make_zip.py experiments/probe_bot
 ```
 
 Compare a downloaded server game with a local replay of the same seed:
 
 ```bash
-.venv/Scripts/python.exe tools/compare_probe.py blitz-games/<gameId>
+.venv/bin/python tools/compare_probe.py blitz-games/<gameId>
 ```
 
 Build the simulator (Zig comes with the dev requirements, so no other compiler is needed):
 
 ```bash
-.venv/Scripts/python.exe tools/build_sim.py
+.venv/bin/python tools/build_sim.py --linux
 ```
 
-Check the simulator against the real engine, tick by tick. It needs `localRunner/`:
+Check the simulator against the real engine, tick by tick. Each game starts with
+deterministic boundary, volcano, and meteor-cap actions, then continues with
+seeded random actions. This checks every tick's score and visible state. It
+needs `localRunner/`:
 
 ```bash
-.venv/Scripts/python.exe tools/check_sim.py --games 12
+.venv/bin/python tools/check_sim.py --games 12
 ```
 
 Search known seeds for strong plans, written to `runs/plans/`:
 
 ```bash
-.venv/Scripts/python.exe tools/estimate_maps.py --width 200 --seeds 4
+.venv/bin/python tools/estimate_maps.py --width 200 --seeds 4
 ```
 
 Check a plan on the real engine, and see how it scores:
 
 ```bash
-.venv/Scripts/python.exe tools/verify_plan.py runs/plans/<plan>.txt <biome> <seed>
+.venv/bin/python tools/verify_plan.py runs/plans/<plan>.txt <biome> <seed>
 ```
 
 ```bash
-.venv/Scripts/python.exe tools/analyze_plan.py runs/plans/<plan>.txt <biome> <seed>
+.venv/bin/python tools/analyze_plan.py runs/plans/<plan>.txt <biome> <seed>
 ```
 
 Measure simulator speed:
@@ -85,7 +103,7 @@ Measure simulator speed:
 build/sim_bench.exe 30
 ```
 
-Build zips with `make_zip.py`. `tar` from Git Bash writes a tar archive under a `.zip` name, and the server rejects it.
+Build upload zips with `make_zip.py`; it validates the ZIP and lists its contents.
 
 ## Writing a bot
 
