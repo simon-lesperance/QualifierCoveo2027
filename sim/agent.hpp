@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "game.hpp"
+#include "value_net.hpp"
 
 namespace sim {
 
@@ -21,6 +22,11 @@ struct AgentConfig {
     double exploration = 0.5;
     int mcts_depth = 3;          // Decisions per iteration before the rollout.
     double widening = 3;         // A node may try 1 + widening * sqrt(visits) actions.
+
+    // Scores what each MCTS iteration leaves behind, on top of the points it earned.
+    const ValueNet* net = nullptr;
+    double value_weight = 1;
+    int net_cost = 3;            // Simulated ticks charged per evaluation, so tests stay fair on time.
 
     // Experiments only: plan with information a live bot can't have.
     bool reveal_rows = false;
