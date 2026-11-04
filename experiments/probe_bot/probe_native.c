@@ -1,7 +1,7 @@
 // Same BFS as the Numba probe, to compare a prebuilt library against the JIT.
 //
-// Build for the server from Windows, from Code/:
-//   .venv/Scripts/python.exe -m ziglang cc -target x86_64-linux-gnu.2.31 -O2 -shared -fPIC \
+// Build for the server from the repository root:
+//   .venv/bin/python -m ziglang cc -target x86_64-linux-gnu.2.31 -O2 -shared -fPIC \
 //     -o experiments/probe_bot/libprobe.so experiments/probe_bot/probe_native.c
 
 #include <stdint.h>

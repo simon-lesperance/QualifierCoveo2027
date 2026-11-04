@@ -3,8 +3,7 @@
     python tools/make_zip.py experiments/probe_bot
 
 Writes <folder>.zip next to the folder, so the next zip doesn't contain the last
-one. Use this rather than tar: Git Bash's tar silently writes a tar archive to a
-.zip name, which the server rejects with "Could not detect language".
+one. The archive is created and integrity-checked with Python's zipfile module.
 """
 
 import argparse

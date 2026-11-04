@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "localRunner" / "blitz-challenge-win.exe"
+LAUNCHER = ROOT / "localRunner" / "blitz-challenge-linux"
 BIOMES = ["deep_crevasse", "mountain_range", "volcanic_plains"]
 REPLAY_RE = re.compile(r"--biome (\S+) --randomSeed (\S+)")
 

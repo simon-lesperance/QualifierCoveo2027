@@ -1,10 +1,11 @@
 """Build the C++ simulator with Zig, which needs no other compiler.
 
-    python tools/build_sim.py            # Windows tools in build/
-    python tools/build_sim.py --linux    # adds Linux builds, including the bot's library
+    .venv/bin/python tools/build_sim.py            # host tools in build/
+    .venv/bin/python tools/build_sim.py --linux    # adds Linux targets and the bot's library
 """
 
 import argparse
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -22,8 +23,18 @@ LINUX_TARGET = "x86_64-linux-gnu.2.31"
 BOT_DIR = ROOT / "bots" / "search_bot"
 
 
+def zig_python() -> str:
+    """Use this interpreter if it has ziglang, otherwise the project's .venv one."""
+    if importlib.util.find_spec("ziglang") is not None:
+        return sys.executable
+    venv_python = ROOT / ".venv" / "bin" / "python"
+    if venv_python.exists():
+        return str(venv_python)
+    sys.exit("ziglang not found: install requirements-dev.txt into .venv (see README)")
+
+
 def compile_program(name: str, main_source: str, target: str | None = None, suffix: str = ".exe") -> None:
-    command = [sys.executable, "-m", "ziglang", "c++", *FLAGS]
+    command = [zig_python(), "-m", "ziglang", "c++", *FLAGS]
     if target:
         command += ["-target", target]
     command += ["-o", str(BUILD / f"{name}{suffix}")]
@@ -33,7 +44,7 @@ def compile_program(name: str, main_source: str, target: str | None = None, suff
 
 
 def compile_library(output: Path, target: str | None = None) -> None:
-    command = [sys.executable, "-m", "ziglang", "c++", *FLAGS, "-shared", "-fPIC"]
+    command = [zig_python(), "-m", "ziglang", "c++", *FLAGS, "-shared", "-fPIC"]
     if target:
         command += ["-target", target]
     command += ["-o", str(output), *(str(SIM / source) for source in [*ENGINE_SOURCES, "capi.cpp"])]

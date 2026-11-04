@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "localRunner" / "blitz-challenge-win.exe"
+LAUNCHER = ROOT / "localRunner" / "blitz-challenge-linux"
 BOT = ROOT / "experiments" / "probe_bot"
 STATE_RE = re.compile(r"STATE (\d+) (\d+) (\w+)")
 REPLAY_RE = re.compile(r"--biome (\S+) --randomSeed (\S+)")
