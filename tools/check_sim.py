@@ -1,8 +1,8 @@
 """Check the C++ simulator against the real engine, tick by tick.
 
-Plays games on the launcher with a random-action bot, replays the same actions in
-the simulator, and compares the full state after every tick. Stops at the first
-difference and prints it.
+Starts with deterministic boundary/cap actions, follows with seeded random
+actions, replays them in the simulator, and compares the full state after every
+tick. Stops at the first difference and prints it.
 
     python tools/check_sim.py --games 12
 """
@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = ROOT / "localRunner" / "blitz-challenge-win.exe"
+LAUNCHER = ROOT / "localRunner" / "blitz-challenge-linux"
 SIM_REPLAY = ROOT / "build" / "sim_replay.exe"
 BOT = ROOT / "experiments" / "chaos_bot"
 STARTER = ROOT / "starterkit" / "python"
@@ -99,6 +99,10 @@ def sim_state(state: dict) -> dict:
 
 def first_difference(record: Path, replay_lines: list[str]) -> str | None:
     states = json.loads(record.read_text(encoding="utf8"))["commandsAndTicks"]
+    if len(replay_lines) != 1001:
+        return f"simulator replayed {len(replay_lines)} states, expected 1001"
+    if len(states) != len(replay_lines) + 1 or states[-1].get("currentTick") != 1001:
+        return f"engine recorded {len(states)} states, expected 1001 ticks plus its terminal state"
     # Entry 0 is the setup state, and entry t follows update(t).
     for tick in range(0, 1001):
         expected = engine_state(states[tick])
