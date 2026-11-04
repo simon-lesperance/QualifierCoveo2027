@@ -22,7 +22,7 @@ SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus
 
 # The limit is 150 ms, but even a trivial bot sees spikes of up to 65 ms.
 TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
-RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 6, 5
+RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 3, 5
 WIDENING, EXPLORATION = 3.0, 0.5
 VALUE_WEIGHT = 0.3
 POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT = 60, 4, 0.0
