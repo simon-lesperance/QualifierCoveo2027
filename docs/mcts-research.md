@@ -119,6 +119,78 @@ The remote value-network variant was also screened with combined targeting:
 on four paired seeds per biome it scored 43,008 overall versus 44,559 without
 the net (weight 0.3). It remains unintegrated.
 
+## Tuning at the measured Linux capacity
+
+The local 95 ms bot typically simulates 20,000-25,000 ticks per move, rather
+than the 6,500 used in the original tuning. The following screening used
+22,000 simulated ticks, six paired seeds per biome (`live-40..45`), and the
+baseline settings unless shown otherwise:
+
+| Variant | deep_crevasse | mountain_range | volcanic_plains | Overall mean |
+|---|---:|---:|---:|---:|
+| Baseline | 54,875 | 45,273 | 46,928 | 49,025 |
+| Depth 10 | 57,021 | 42,376 | 47,411 | 48,936 |
+| Depth 16, widening 2 | 55,584 | 41,502 | 45,824 | 47,637 |
+| 1,000-point wave-clear bonus | 56,314 | 43,521 | 50,486 | 50,107 |
+| 3,000-point wave-clear bonus | 55,440 | 44,195 | 45,297 | 48,311 |
+| Optimism 0.25 | 57,391 | 45,426 | 48,401 | 50,406 |
+
+Deeper search alone did not help. The wave-clear bonus tried to account for
+the next wave, which planning copies otherwise omit. Its 1,000-point variant
+failed on fresh seeds `live-60..69`: mean 48,194 versus baseline 48,596.
+The temporary clear-bonus code was removed.
+
+Optimistic MCTS blends each visited edge's best observed return into its mean
+before the usual UCB normalization:
+`value = mean + optimism * (best - mean)`. The default weight is zero, retaining
+the existing policy. A weight of 0.25 favors lines with a strong coordinated
+continuation instead of judging them only by mostly unsuccessful continuations.
+It can also overvalue lucky hidden-RNG samples, so local deadline results remain
+the deciding evidence.
+
+On the 30 fresh paired simulator games (`live-60..69`):
+
+| Biome | Baseline mean | Optimism 0.25 mean | Delta | Paired wins |
+|---|---:|---:|---:|---:|
+| deep_crevasse | 54,062 | 55,827 | +3.3% | 5/10 |
+| mountain_range | 43,031 | 46,126 | +7.2% | 9/10 |
+| volcanic_plains | 48,697 | 49,057 | +0.7% | 5/10 |
+| **Overall** | **48,597** | **50,336** | **+3.6%** | **19/30** |
+
+The mean paired gain was 1,740 points (standard error 781, paired t 2.23).
+That is encouraging simulator evidence, not proof of a deadline improvement.
+
+The real launcher comparison used two further seeds per biome,
+`bench-80..81`, at the default 95 ms search / 150 ms tick limits:
+
+| Biome | Baseline mean | Optimism 0.25 mean |
+|---|---:|---:|
+| deep_crevasse | 54,406 | 54,451 |
+| mountain_range | 43,666 | 44,687 |
+| volcanic_plains | 47,830 | 45,621 |
+| **Overall** | **48,634** | **48,253** |
+
+All 12 games completed without timeouts, late ticks, or reported bot errors.
+The candidate's best game was 61,632 versus 57,662 for the baseline, but its
+mean was 0.8% lower and it won only three of the six pairs. These samples are
+too small to establish an improvement in the high-score tail. Keep optimism
+opt-in rather than changing the shipped defaults. The 200,000-point target
+remains unmet.
+
+Reproduce the candidate simulator evaluation with:
+
+```bash
+build/sim_live_linux 10 --mcts 1 --radius 2 --horizon 4 --volcanoes 6 \
+  --depth 5 --widening 3 --exploration 0.5 --budget 22000 --threads 8 \
+  --first 60 --optimism 0.25 --csv runs/optimism-holdout.csv
+```
+
+`--csv` writes per-biome, per-seed scores, kills, and spawn counts so paired
+statistics do not depend on truncated aggregate means. It excludes filtered-out
+biomes and reports output errors explicitly. CLI regression checks are in
+`tools/test_sim_live.py`; disabling optimism also reproduced the original
+scores, kills, and spawns exactly on `live-60` in all three biomes.
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT

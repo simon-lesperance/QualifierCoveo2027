@@ -214,6 +214,7 @@ struct Edge {
     Action action;
     int visits = 0;
     double total = 0;
+    double best = -std::numeric_limits<double>::infinity();
     int child = -1;
 };
 
@@ -280,9 +281,13 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                 double best_score = -1e18;
                 for (int i = 0; i < static_cast<int>(tree[node].edges.size()); i++) {
                     const Edge& edge = tree[node].edges[i];
+                    double mean = edge.visits > 0 ? edge.total / edge.visits : 0;
+                    double value = config_.optimism > 0
+                                       ? mean + config_.optimism * (edge.best - mean)
+                                       : mean;
                     double score = edge.visits == 0
                                        ? 1e17
-                                       : (edge.total / edge.visits - lowest_reward) / reward_range +
+                                       : (value - lowest_reward) / reward_range +
                                              config_.exploration * std::sqrt(log_visits / edge.visits);
                     if (score > best_score) {
                         best_score = score;
@@ -333,6 +338,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             Edge& edge = tree[path_node[i]].edges[path_edge[i]];
             edge.visits++;
             edge.total += reward;
+            edge.best = std::max(edge.best, reward);
             if (i > 0) tree[path_node[i]].visits++;
         }
         if (path_length == 0) break;  // Nothing to decide this tick.

@@ -42,6 +42,12 @@ Benchmark the current bot across fixed seeds in every biome:
 .venv/bin/python tools/benchmark_bot.py --bot bots/search_bot --seeds 3
 ```
 
+Experimental optimistic MCTS remains opt-in: set `BOT_OPTIMISM=0.25` for a
+local benchmark, or use `--optimism 0.25` with `build/sim_live_linux`.
+The simulator accepts `--csv <path>` for per-seed results. See
+`docs/mcts-research.md` for measured gains and regressions; neither optimism
+nor predicted targeting is enabled by default.
+
 Compare the simulator's live-information MCTS with and without a trained value
 network on the same deterministic seeds:
 

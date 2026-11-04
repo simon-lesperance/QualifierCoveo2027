@@ -22,6 +22,7 @@ struct AgentConfig {
     double exploration = 0.5;
     int mcts_depth = 3;          // Decisions per iteration before the rollout.
     double widening = 3;         // A node may try 1 + widening * sqrt(visits) actions.
+    double optimism = 0;         // Blend each edge's best return into its mean.
 
     // Where to aim. A meteor lands kMeteorDelay ticks later, so targets can be placed
     // around where dinosaurs are predicted to be then, as well as where they are now.
@@ -50,6 +51,7 @@ public:
     Action act(const Observation& observation, const Game* truth = nullptr);
 
     void set_time_budget(double ms) { config_.time_budget_ms = ms; }
+    void set_optimism(double weight) { config_.optimism = weight; }
     void set_targeting(bool aim_predicted, bool volcano_near_dinos) {
         config_.aim_predicted = aim_predicted;
         config_.volcano_near_dinos = volcano_near_dinos;

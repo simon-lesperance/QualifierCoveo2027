@@ -26,6 +26,9 @@ RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 6, 5
 WIDENING, EXPLORATION = 3.0, 0.5
 AIM_PREDICTED = os.environ.get("BOT_AIM_PREDICTED", "0") == "1"
 VOLCANO_NEAR_DINOS = os.environ.get("BOT_VOLCANO_NEAR", "0") == "1"
+OPTIMISM = float(os.environ.get("BOT_OPTIMISM", "0"))
+if not 0 <= OPTIMISM <= 1:
+    raise ValueError("BOT_OPTIMISM must be between 0 and 1")
 
 
 class Observation(ctypes.Structure):
@@ -60,6 +63,8 @@ def load_library() -> ctypes.CDLL:
     library.sim_agent_create.argtypes = [ctypes.c_int] * 4 + [ctypes.c_double] * 2
     library.sim_agent_set_targeting.restype = None
     library.sim_agent_set_targeting.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+    library.sim_agent_set_optimism.restype = None
+    library.sim_agent_set_optimism.argtypes = [ctypes.c_void_p, ctypes.c_double]
     library.sim_agent_act.restype = None
     library.sim_agent_act.argtypes = [
         ctypes.c_void_p, ctypes.POINTER(Observation), ctypes.c_double,
@@ -79,6 +84,7 @@ class Bot:
     def __init__(self):
         self.agent = LIBRARY.sim_agent_create(RADIUS, HORIZON, VOLCANOES, DEPTH, WIDENING, EXPLORATION)
         LIBRARY.sim_agent_set_targeting(self.agent, AIM_PREDICTED, VOLCANO_NEAR_DINOS)
+        LIBRARY.sim_agent_set_optimism(self.agent, OPTIMISM)
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []
