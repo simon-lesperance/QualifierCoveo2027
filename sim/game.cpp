@@ -104,12 +104,12 @@ void keep_min(Moves& moves, Score score) {
 void flood(const uint8_t* flags, int16_t* dist, int16_t* queue, int tail) {
     for (int head = 0; head < tail; head++) {
         int cell = queue[head];
-        int next = dist[cell] + 1;
-        for (int neighbor : kNeighbors[cell]) {
+        int16_t next = dist[cell] + 1;
+        for (int16_t neighbor : kNeighbors[cell]) {
             if (neighbor < 0 || dist[neighbor] != kUnreachable) continue;
             if (flags[neighbor] & (kImpassable | kLava)) continue;
-            dist[neighbor] = static_cast<int16_t>(next);
-            queue[tail++] = static_cast<int16_t>(neighbor);
+            dist[neighbor] = next;
+            queue[tail++] = neighbor;
         }
     }
 }
