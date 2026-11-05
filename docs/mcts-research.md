@@ -289,6 +289,56 @@ percent, while incidental code-layout and inlining changes moved runtime by
 2-6%. Search throughput remains dominated by `Game::update()` simulation work
 (flood, safety distance, lava propagation and movement).
 
+## Safety-distance algorithm
+
+When every move of a dinosaur is equally doomed, the engine prefers the move
+closest to safety: the fewest steps, through passable cells (lava allowed), to a
+cell that is neither dangerous nor impassable. The old code computed this with a
+lazy multi-source BFS over the whole frame from every safe cell, once per
+movement tick. Instrumented games (one per biome, budget 1,500) showed about
+708K such floods, each reaching about 342 of 400 cells, answering only about 3.6
+lookups each. 89% of answers were 3 steps or fewer, and about 10% of lookups were
+for impassable cells, whose answer is always "unreachable".
+
+Related, potentially faster methods considered:
+
+- **Early-exit point-to-set BFS.** Moves are reversible, so the distance from
+  a cell to the safe set equals the multi-source distance. Searching outward
+  from the queried cell and stopping at the first safe neighbor touches only
+  a few cells for short answers.
+- **Bit-parallel flood fill** (chessprogramming Dumb7Fill and Kogge-Stone
+  occluded fills). One BFS layer of a whole 20x20 frame is a few shifts and
+  ANDs on 20 row masks (`next = dilate(frontier) & passable & ~visited`).
+- **Geodesic dilation / morphological reconstruction** (Vincent 1993). Same
+  layered dilation, but grown lazily from the safe set and only until the
+  queried cell is reached.
+- **Two-pass chamfer distance transform** (Rosenfeld and Pfaltz). Not exact
+  around obstacles without repeated passes, so not implemented.
+- **Direction-optimizing BFS** (Beamer et al. 2012). Built for large,
+  low-diameter graphs; little to gain on a 400-cell grid.
+
+Each candidate was checked by `tools/test_safety.py` against an independent
+coordinate BFS on 3,409 frames and 799,336 dangerous-cell queries: random lava,
+impassable terrain and meteor disks, a single safe cell, impassable query cells,
+walled-off regions, lava gaps, a winding corridor and row-wrap edges. Timing used
+paired, interleaved, CPU-pinned `sim_live` runs (MCTS, budget 1,500, 6 pairs)
+against `4789377`. Every candidate produced byte-identical per-seed results.
+
+| Variant | CPU change | Faster pairs |
+|---|---:|---:|
+| Free-function refactor of the old flood (control) | +0.0% | 1/6 |
+| Early-exit reverse BFS from the queried cell | **-8.7%** | 6/6 |
+| Lazy bitboard dilation from the safe set | -6.4% | 6/6 |
+| Bitboard dilation from the queried cell | -7.6% | 6/6 |
+| Early-exit BFS plus an 8-entry per-tick memo | -9.1% | 6/6 |
+
+The early-exit BFS also cut beam search by 6.0% and MCTS at budget 3,000 by 9.3%
+(bitboard from the queried cell: beam -5.3%). Head-to-head, the memo was only
+0.4% faster than the plain early-exit BFS in MCTS and 0.2% in beam, below the 1%
+threshold, so it was dropped. The plain early-exit BFS (`nearest_safe` in
+`sim/game.cpp`) replaced the frame-wide flood; the rebuilt `sim_live` measured
+-9.3% (4/4 pairs) and `check_sim.py --games 12` stayed identical to the launcher.
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT
