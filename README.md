@@ -8,6 +8,8 @@ Bot for the Dinosaur Extinction challenge, a solo high-score game. The team's sc
 
 ## Documentation
 
+These pages describe `develop`, which has the current bot and research tools. `main` holds the last milestone bot, so some commands need `develop`.
+
 | Page | Read it for |
 |---|---|
 | [AGENTS.md](AGENTS.md) | Reading order and project rules, for agents and new teammates |
