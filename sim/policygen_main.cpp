@@ -24,7 +24,7 @@
 namespace {
 
 using sim::kCells;
-using sim::kFeatureBytes;
+using sim::kPolicyBytes;
 using sim::kMaxTicks;
 using sim::kWidth;
 
@@ -51,11 +51,11 @@ void play(const std::string& biome, const std::string& seed, const std::string& 
         sim::Observation observation = game.observe(tick);
         sim::Action action = agent.act(observation);
         if (tick % every == 0 && !agent.root_visits().empty()) {
-            uint8_t features[kFeatureBytes];
-            sim::encode_features(game, tick, features);
+            uint8_t features[kPolicyBytes];
+            sim::encode_policy_features(game, tick, features);
             int32_t size = static_cast<int32_t>(agent.root_visits().size());
             put(&tick, sizeof(tick));
-            put(features, kFeatureBytes);
+            put(features, kPolicyBytes);
             put(&size, sizeof(size));
             for (const auto& visit : agent.root_visits()) {
                 int32_t pair[2] = {action_code(visit.action, game.origin_y()), visit.visits};

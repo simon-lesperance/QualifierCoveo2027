@@ -10,6 +10,7 @@
 //                                                 [--label-width n] [--label-step n]
 //                                                 [--ancestry file] [--horizon n]
 //                                                 [--dead n] [--rejects n] [--children n]
+//                                                 [--plan-data file]
 //
 // The plan file uses the same format as sim_replay's actions.
 //
@@ -25,6 +26,10 @@
 // descendants left, or a candidate the beam rejected, is labelled from the lowest score
 // still in the beam then, since it can't be known to have done better. Each record is
 // int32 tick, int32 points, int32 kind (0 descendants, 1 none, 2 rejected), feature bytes.
+//
+// --plan-data replays the best plan and writes each position with the move it chose, in
+// sim_policygen's format, to teach the policy net from foresight play. The features hold
+// only what a live bot sees, so the net has to learn what is good without the foresight.
 
 #include <algorithm>
 #include <atomic>
@@ -73,6 +78,7 @@ struct Options {
     int dead = 10;     // Kept states with no descendants to write, per snapshot.
     int rejects = 10;  // Candidates the beam dropped to write, per snapshot.
     int children = 0;  // Most states one parent may keep, or 0 for no limit.
+    std::string plan_data;  // Where to write the best plan as policy training data, if anywhere.
 };
 
 constexpr int kPocketLimit = 60;
@@ -352,6 +358,40 @@ void write_ancestry(const Options& options, const std::vector<Snapshot>& snapsho
                  static_cast<double>(survivors) / std::max(1LL, counted));
 }
 
+// Action codes match sim_policygen: 0 is nothing, 1 + cell a meteor, 401 + cell a volcano.
+int32_t action_code(const Action& action, int origin) {
+    if (action.type == Action::Type::None) return 0;
+    int cell = (action.y - origin) * sim::kWidth + action.x;
+    return (action.type == Action::Type::LaunchMeteor ? 1 : 1 + sim::kCells) + cell;
+}
+
+void write_plan_data(const std::string& path, const sim::Terrain& terrain, const char* seed, const std::vector<Action>& plan,
+                     bool shield) {
+    Game game(terrain, seed);
+    game.set_spawn_shield(shield);
+    std::vector<int32_t> score(sim::kMaxTicks + 1, 0);
+    std::vector<char> samples;
+    auto put = [&](const void* data, size_t size) {
+        const char* bytes = static_cast<const char*>(data);
+        samples.insert(samples.end(), bytes, bytes + size);
+    };
+    for (int32_t tick = 1; tick <= sim::kMaxTicks; tick++) {
+        uint8_t features[sim::kPolicyBytes];
+        sim::encode_policy_features(game, tick, features);
+        int32_t choice[3] = {1, action_code(plan[tick], game.origin_y()), 1};  // One action, with one visit.
+        put(&tick, sizeof(tick));
+        put(features, sizeof(features));
+        put(choice, sizeof(choice));
+        game.step(tick, plan[tick]);
+        score[tick] = game.score();
+    }
+    std::ofstream file(path, std::ios::binary);
+    int32_t count = sim::kMaxTicks;
+    file.write(reinterpret_cast<const char*>(score.data()), score.size() * sizeof(int32_t));
+    file.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    file.write(samples.data(), samples.size());
+}
+
 void report(const sim::Terrain& terrain, const char* seed, const std::vector<Action>& plan, bool shield) {
     Game game(terrain, seed);
     game.set_spawn_shield(shield);
@@ -425,6 +465,7 @@ int main(int argc, char** argv) {
         else if (name == "--dead") options.dead = static_cast<int>(value);
         else if (name == "--rejects") options.rejects = static_cast<int>(value);
         else if (name == "--children") options.children = static_cast<int>(value);
+        else if (name == "--plan-data") options.plan_data = argv[i + 1];
         else if (name == "--net") {
             if (!net.load(argv[i + 1])) {
                 std::fputs("can't read the net file\n", stderr);
@@ -542,6 +583,7 @@ int main(int argc, char** argv) {
         char kind = plan[turn].type == Action::Type::TriggerVolcano ? 'V' : 'M';
         file << turn << ' ' << kind << ' ' << plan[turn].x << ' ' << plan[turn].y << '\n';
     }
+    if (!options.plan_data.empty()) write_plan_data(options.plan_data, terrain, seed, plan, options.shield);
     report(terrain, seed, plan, options.shield);
     return 0;
 }
