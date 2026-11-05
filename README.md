@@ -168,6 +168,19 @@ Run the development regression checks after building:
 uv run --no-project python -m unittest discover -s tools -p "test_*.py"
 ```
 
+Before and after optimizing `game.cpp`'s pathfinding flood, run:
+
+```text
+uv run --no-project python tools/test_flood.py
+```
+
+This recompiles the current implementation and compares every tile's distance
+against an independent BFS on fixed edge cases and 2,000 deterministic random
+grids. It covers lava/impassable blockers, blocked sources, multiple sources,
+disconnected regions, long detours, previsited cells, and queue boundaries.
+It does not require the launcher or a full simulator build. After an optimization,
+also rebuild and run `tools/check_sim.py --games 12` for full-game engine parity.
+
 Build upload zips with `make_zip.py`; it works on both OSes, validates the ZIP,
 and lists its contents. Run `build_sim.py --linux` first for native bots: uploads
 need `.so` libraries even when packaged on Windows. Windows DLLs and linker
