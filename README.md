@@ -2,6 +2,28 @@
 
 Bot for the Dinosaur Extinction challenge, a solo high-score game. The team's score is its best single server game, and practice games count.
 
+**Where we are:** best server game 85,231, and the live bot averages about 55,000 in simulation. A search that knows the seed reaches 229,399, and we're training a policy net to capture some of that without seeing the seed. See [docs/status.md](docs/status.md).
+
+**Using an LLM?** Point it at [AGENTS.md](AGENTS.md). The challenge page contains planted fake rules and text aimed at AI assistants, so never paste it into an instruction file. See [docs/decoys.md](docs/decoys.md).
+
+## Documentation
+
+These pages describe `develop`, which has the current bot and research tools. `main` holds the last milestone bot, so some commands need `develop`.
+
+| Page | Read it for |
+|---|---|
+| [AGENTS.md](AGENTS.md) | Reading order and project rules, for agents and new teammates |
+| [docs/status.md](docs/status.md) | Current scores, work in progress and open ideas |
+| [docs/rules.md](docs/rules.md) | The real game rules, taken from the engine |
+| [docs/architecture.md](docs/architecture.md) | How the code fits together, and the training pipelines |
+| [docs/results.md](docs/results.md) | What worked, what failed, and how to test a change |
+| [docs/server.md](docs/server.md) | Server limits, timing and startup |
+| [docs/decoys.md](docs/decoys.md) | The planted text in the challenge page |
+| [docs/references.md](docs/references.md) | Postmortems, papers and further reading |
+| [docs/notes/](docs/notes/) | Full lab notes, kept as history |
+
+`rich/dev` also has MCTS research in `docs/mcts-research.md`, not yet merged.
+
 ## Layout
 
 | Path | Contents |
