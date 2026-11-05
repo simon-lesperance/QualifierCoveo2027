@@ -201,6 +201,44 @@ biomes and reports output errors explicitly. CLI regression checks are in
 `tools/test_sim_live.py`; disabling optimism also reproduced the original
 scores, kills, and spawns exactly on `live-60` in all three biomes.
 
+## Tick-local passable-neighbor cache experiment
+
+On 2026-11-04, tested caching each cell's compact list of destinations without
+`kImpassable | kLava` once per movement tick. The cache was built lazily for
+the first nonempty distance-field flood and reused for subsequent target and
+corpse floods. Blocked sources retained their outgoing edges; safety distance
+was unchanged because it permits crossing lava. Baseline was `89c66c8`, with
+the same O3, LTO, native-CPU and debug compiler flags for both binaries.
+
+Measured single-threaded, fixed-work MCTS using `live-0` in all three biomes:
+
+```bash
+build/sim_live_neighbor_baseline 1 --mcts 1 --radius 2 --horizon 4 \
+  --volcanoes 6 --depth 5 --widening 3 --exploration 0.5 \
+  --budget 6000 --threads 1 --csv runs/profiling/neighbor-cache/baseline-0.csv
+```
+
+The candidate used the same command with `sim_live_neighbor_candidate`.
+Runs were ordered baseline/candidate, then candidate/baseline:
+
+| Variant | First run | Second run | Mean |
+|---|---:|---:|---:|
+| Original flood | 70.061 s | 69.203 s | 69.632 s |
+| Cached passable neighbors | 90.552 s | 90.174 s | 90.363 s |
+
+The cache took **29.8% longer** for identical fixed-work scores, kills and
+spawn counts. The candidate passed 6,414 independent BFS cases, including
+cache reuse and rebuilding after flag changes, and matched the launcher for
+every tick of 12 games.
+
+Decision: remove the cache rather than reduce deadline-limited search
+throughput. The original BFS checks destination flags only after finding an
+unvisited cell; cache construction checks all outgoing edges, even in regions
+no flood reaches. The setup and compact-list traversal did not amortize in
+this workload. Local timing and per-seed CSV artifacts remain under
+`runs/profiling/neighbor-cache/`; candidate-specific tests were removed along
+with the implementation.
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT
