@@ -261,6 +261,34 @@ improved scores or server deadline performance; the gains are not additive.
 Each isolated candidate preserved full replay states and passed engine parity.
 Combining flood visited/blocked predicates was 1.30% slower and remains reverted.
 
+## Heap-to-stack allocation experiments
+
+On 2026-11-04, seven allocation changes in `sim/agent.cpp` were each built as
+a single change from `fc37edc`, using the repository's O3/LTO/native-CPU
+flags. Each was timed against a baseline built the same way: six interleaved
+pairs, both pinned to one CPU, comparing child CPU time at a fixed budget of
+1,500 simulated ticks per move (`live-0`, all three biomes). Every candidate
+produced byte-identical per-seed scores, kills and spawn counts. The keep
+threshold was at least a 1% mean CPU reduction, with the candidate faster in
+at least five of six pairs.
+
+| Change | Mode | Mean CPU delta | Faster pairs |
+|---|---|---:|---:|
+| Bounded stack array for MCTS/beam action scratch | MCTS | +3.6% | 0/6 |
+| Allocation-free stable merge sort for action ordering | MCTS | +6.0% | 0/6 |
+| `std::sort` with cell tie-break for nearby-volcano ranking | `--volcano-near 1` | +0.3% | 0/6 |
+| Stack array for sample votes | 5-sample beam | -0.3% | 5/6 |
+| Reuse the MCTS tree vector across moves | MCTS | +2.8% | 0/6 |
+| Stack-backed `pmr` arena for node action/edge lists | MCTS | +2.1% | 0/6 |
+| Reuse beam candidate/frontier/hash-set buffers | beam | +0.9% | 0/6 |
+
+None was kept. A baseline cycle profile explains why: all of libc, including
+`malloc`, `free` and `memcpy`, was 0.66% of user cycles, with allocator entry
+points around 0.1-0.2%. Allocation cannot recover more than a fraction of a
+percent, while incidental code-layout and inlining changes moved runtime by
+2-6%. Search throughput remains dominated by `Game::update()` simulation work
+(flood, safety distance, lava propagation and movement).
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT
