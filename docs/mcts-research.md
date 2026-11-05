@@ -239,6 +239,28 @@ this workload. Local timing and per-seed CSV artifacts remain under
 `runs/profiling/neighbor-cache/`; candidate-specific tests were removed along
 with the implementation.
 
+## Generated-assembly CPU audit
+
+On 2026-11-04, inspected baseline `2f7de94` with the normal O3/LTO/native-CPU
+build flags. Replacing RC4 key scheduling's variable modulo with an incrementing,
+wrapping key index removed three generated integer-division sites. Separately,
+hoisting the safety-BFS next distance outside the neighbor loop removed repeated
+loads/increments and shrank that function from 526 to 482 bytes.
+
+CPU0-pinned, single-thread fixed-work MCTS across all three biomes measured each
+change independently:
+
+| Change | `live-0`, budget 500 | Fresh `live-1`, budget 1,000 |
+|---|---:|---:|
+| RC4 key-index increment/wrap | 3.60% faster | 2.92% faster |
+| Hoist safety-BFS next distance | 0.89% faster | 0.49% faster |
+
+The safety hoist was initially rejected as marginal, then retained at the
+maintainer's request. These are small local throughput cohorts, not evidence of
+improved scores or server deadline performance; the gains are not additive.
+Each isolated candidate preserved full replay states and passed engine parity.
+Combining flood visited/blocked predicates was 1.30% slower and remains reverted.
+
 ## What the methods do
 
 - **AlphaGo** (Silver et al., Nature 2016): a policy net gives priors for PUCT

@@ -220,9 +220,10 @@ struct Game::TickContext {
             // Unlike other distances, the way to safety may cross lava.
             for (int head = 0; head < tail; head++) {
                 int current = queue[head];
+                int16_t next = static_cast<int16_t>(safety[current] + 1);
                 for (int neighbor : kNeighbors[current]) {
                     if (neighbor < 0 || safety[neighbor] != kUnreachable || (flags[neighbor] & kImpassable)) continue;
-                    safety[neighbor] = static_cast<int16_t>(safety[current] + 1);
+                    safety[neighbor] = next;
                     queue[tail++] = static_cast<int16_t>(neighbor);
                 }
             }
