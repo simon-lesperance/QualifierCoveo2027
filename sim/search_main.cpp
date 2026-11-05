@@ -4,6 +4,8 @@
 //
 //   sim_search <biome> <seed> <width> <plan file> [--radius n] [--cluster x] [--spread x]
 //                                                 [--volcanoes n] [--threads n] [--shield 1]
+//                                                 [--grid-step n] [--net file] [--net-weight x]
+//                                                 [--pocket-value x] [--flood x]
 //
 // The plan file uses the same format as sim_replay's actions.
 
@@ -19,7 +21,10 @@
 #include <unordered_set>
 #include <vector>
 
+#include "agent.hpp"
+#include "features.hpp"
 #include "game.hpp"
+#include "value_net.hpp"
 
 namespace {
 
@@ -36,7 +41,15 @@ struct Options {
     double spread = 0;    // Penalty per living dinosaur, to favour clearing the map.
     bool shield = false;  // Rule out spawn-tick kills, which need to foresee spawns.
     double pocket = 0;    // Reward per tile removed from where waves can spawn.
+    int grid_step = 3;    // Spacing of the empty-ground targets. 1 offers every tile.
+    double pocket_value = 0;  // Share of a meteor's expected points on the next wave.
+    double flood = 0;     // Share of the same value, averaged over 40 ticks of lava alone.
+    const sim::ValueNet* net = nullptr;
+    double net_weight = 0;
 };
+
+constexpr int kPocketLimit = 60;
+constexpr int kFloodLookahead = 40;
 
 struct Candidate {
     double value;
@@ -70,8 +83,10 @@ void list_actions(const Game& game, const Options& options, std::vector<Action>&
             }
         }
         // A sparse grid lets it aim at empty ground, such as where a wave will spawn.
-        for (int row = 1; row < sim::kHeight; row += 3) {
-            for (int column = 1; column < sim::kWidth; column += 3) wanted[row * sim::kWidth + column] = true;
+        for (int row = 1 % options.grid_step; row < sim::kHeight; row += options.grid_step) {
+            for (int column = 1 % options.grid_step; column < sim::kWidth; column += options.grid_step) {
+                wanted[row * sim::kWidth + column] = true;
+            }
         }
         for (int cell = 0; cell < sim::kCells; cell++) {
             if (!wanted[cell]) continue;
@@ -118,10 +133,29 @@ int best_blast(const Game& game) {
     return best;
 }
 
-double evaluate(const Game& rolled, const Options& options) {
+// Points a meteor timed for a new wave's first tick could expect, given the spawn area.
+double next_pocket(const Game& game) {
+    int size = 0;
+    int covered = 0;
+    sim::best_pocket_tile(game, size, covered);
+    if (size == 0 || size > kPocketLimit) return 0;
+    double kills = std::min<double>(covered, static_cast<double>(sim::kDinosPerWave) * covered / std::max(size, sim::kDinosPerWave));
+    constexpr double kFreshValue = 164;
+    return kFreshValue * kills * (1 + 0.5 * (kills - 1));
+}
+
+double evaluate(const Game& rolled, int next_turn, const Options& options) {
     int blast = options.cluster > 0 ? best_blast(rolled) : 0;
     double value = rolled.score() + options.cluster * blast * blast - options.spread * rolled.dino_count();
     if (options.pocket > 0) value += options.pocket * (sim::kCells - rolled.spawn_tiles());
+    if (options.pocket_value > 0) value += options.pocket_value * next_pocket(rolled);
+    if (options.net != nullptr) {
+        constexpr double kWindow = 100;  // The net predicts points over this many ticks.
+        uint8_t features[sim::kFeatureBytes];
+        sim::encode_features(rolled, next_turn, features);
+        double remaining = std::min(1.0, (sim::kMaxTicks + 1 - next_turn) / kWindow);
+        value += options.net_weight * 1000 * remaining * options.net->evaluate(features);
+    }
     return value;
 }
 
@@ -132,6 +166,7 @@ uint64_t state_hash(const Game& game) {
         hash *= 1099511628211ull;
     };
     mix(static_cast<uint64_t>(game.score()));
+    for (int i = 0; i < game.volcano_count(); i++) mix(static_cast<uint64_t>(game.volcano(i).x) * 100000 + game.volcano(i).y);
     for (int i = 0; i < game.dino_count(); i++) mix(static_cast<uint64_t>(game.dino(i).id) * 400 + game.dino(i).cell);
     for (int i = 0; i < game.meteor_count(); i++) {
         mix(static_cast<uint64_t>(game.meteor(i).x) * 1000 + game.meteor(i).y * 10 + game.meteor(i).turns);
@@ -199,6 +234,7 @@ int main(int argc, char** argv) {
     const char* plan_path = argv[4];
 
     Options options;
+    sim::ValueNet net;
     for (int i = 5; i + 1 < argc; i += 2) {
         std::string name = argv[i];
         double value = std::atof(argv[i + 1]);
@@ -209,6 +245,17 @@ int main(int argc, char** argv) {
         else if (name == "--threads") options.threads = static_cast<int>(value);
         else if (name == "--shield") options.shield = value != 0;
         else if (name == "--pocket") options.pocket = value;
+        else if (name == "--grid-step") options.grid_step = static_cast<int>(value);
+        else if (name == "--pocket-value") options.pocket_value = value;
+        else if (name == "--flood") options.flood = value;
+        else if (name == "--net-weight") options.net_weight = value;
+        else if (name == "--net") {
+            if (!net.load(argv[i + 1])) {
+                std::fputs("can't read the net file\n", stderr);
+                return 2;
+            }
+            options.net = &net;
+        }
     }
 
     sim::Terrain terrain(seed, biome);
@@ -224,13 +271,24 @@ int main(int argc, char** argv) {
         parallel_for(static_cast<int>(beam.size()), options.threads, [&](int index, int worker) {
             const Game& state = beam[index];
             list_actions(state, options, scratch[worker]);
+            double flood = 0;
+            Game bare = state;
+            if (options.flood > 0) {
+                bare.clear_dinosaurs();
+                flood = sim::flood_outlook(bare, turn, {}, kFloodLookahead, kPocketLimit);
+            }
             for (const Action& action : scratch[worker]) {
                 Game next = state;
                 if (!next.step(turn, action)) continue;
                 Game rolled = next;
                 int last = std::min(sim::kMaxTicks, turn + kRolloutTicks);
                 for (int future = turn + 1; future <= last; future++) rolled.step(future, Action{});
-                found[worker].push_back({evaluate(rolled, options), state_hash(rolled), index, action});
+                double value = evaluate(rolled, last + 1, options);
+                if (options.flood > 0) {
+                    bool volcano = action.type == Action::Type::TriggerVolcano;
+                    value += options.flood * (volcano ? sim::flood_outlook(bare, turn, {{0, action}}, kFloodLookahead, kPocketLimit) : flood);
+                }
+                found[worker].push_back({value, state_hash(rolled), index, action});
             }
         });
 
