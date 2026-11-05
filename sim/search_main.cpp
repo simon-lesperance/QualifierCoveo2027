@@ -6,8 +6,16 @@
 //                                                 [--volcanoes n] [--threads n] [--shield 1]
 //                                                 [--grid-step n] [--net file] [--net-weight x]
 //                                                 [--pocket-value x] [--flood x]
+//                                                 [--data file] [--samples n] [--every n]
+//                                                 [--label-width n] [--label-step n]
 //
 // The plan file uses the same format as sim_replay's actions.
+//
+// --data also writes training data for the value net. Every --every ticks it takes
+// --samples candidates, half from the states the beam would keep and half from all of
+// them, each after its meteors land. A narrow beam with the same foresight then plays on
+// from each one, so good and bad positions are judged by the same player. Each record
+// is int32 tick, int32 points over the next 100 ticks, then the feature bytes.
 
 #include <algorithm>
 #include <atomic>
@@ -46,10 +54,16 @@ struct Options {
     double flood = 0;     // Share of the same value, averaged over 40 ticks of lava alone.
     const sim::ValueNet* net = nullptr;
     double net_weight = 0;
+    std::string data;     // Where to write training data, if anywhere.
+    int samples = 10;
+    int every = 10;
+    int label_width = 10;
+    int label_step = 3;
 };
 
 constexpr int kPocketLimit = 60;
 constexpr int kFloodLookahead = 40;
+constexpr int kLabelWindow = 100;
 
 struct Candidate {
     double value;
@@ -186,6 +200,71 @@ void parallel_for(int count, int threads, Work work) {
     for (std::thread& thread : pool) thread.join();
 }
 
+// Every way to play `turn` from this state, valued after in-flight meteors land.
+void expand(const Game& state, int index, int turn, const Options& options, std::vector<Action>& actions,
+            std::vector<Candidate>& found) {
+    list_actions(state, options, actions);
+    double flood = 0;
+    Game bare = state;
+    if (options.flood > 0) {
+        bare.clear_dinosaurs();
+        flood = sim::flood_outlook(bare, turn, {}, kFloodLookahead, kPocketLimit);
+    }
+    for (const Action& action : actions) {
+        Game next = state;
+        if (!next.step(turn, action)) continue;
+        Game rolled = next;
+        int last = std::min(sim::kMaxTicks, turn + kRolloutTicks);
+        for (int future = turn + 1; future <= last; future++) rolled.step(future, Action{});
+        double value = evaluate(rolled, last + 1, options);
+        if (options.flood > 0) {
+            bool volcano = action.type == Action::Type::TriggerVolcano;
+            value += options.flood * (volcano ? sim::flood_outlook(bare, turn, {{0, action}}, kFloodLookahead, kPocketLimit) : flood);
+        }
+        found.push_back({value, state_hash(rolled), index, action});
+    }
+}
+
+// A total order, so results don't depend on thread timing.
+bool ranks_higher(const Candidate& a, const Candidate& b) {
+    if (a.value != b.value) return a.value > b.value;
+    if (a.parent != b.parent) return a.parent < b.parent;
+    if (a.action.type != b.action.type) return a.action.type < b.action.type;
+    if (a.action.x != b.action.x) return a.action.x < b.action.x;
+    return a.action.y < b.action.y;
+}
+
+// Points a narrow beam finds from `start` over the next kLabelWindow ticks.
+int label_points(const Game& start, int first, int width, const Options& options) {
+    std::vector<Game> beam{start};
+    std::vector<Game> next_beam;
+    std::vector<Candidate> found;
+    std::vector<Action> actions;
+    std::unordered_set<uint64_t> seen;
+    int last = first + kLabelWindow - 1;
+    for (int turn = first; turn <= last; turn++) {
+        found.clear();
+        for (int i = 0; i < static_cast<int>(beam.size()); i++) expand(beam[i], i, turn, options, actions, found);
+        std::sort(found.begin(), found.end(), ranks_higher);
+        next_beam.clear();
+        seen.clear();
+        for (const Candidate& candidate : found) {
+            if (static_cast<int>(next_beam.size()) >= width) break;
+            if (!seen.insert(candidate.hash).second) continue;
+            next_beam.push_back(beam[candidate.parent]);
+            next_beam.back().step(turn, candidate.action);
+        }
+        beam.swap(next_beam);
+    }
+    int best = start.score();
+    int end = std::min(sim::kMaxTicks, last + kRolloutTicks);
+    for (Game& game : beam) {
+        for (int future = last + 1; future <= end; future++) game.step(future, Action{});
+        best = std::max(best, game.score());
+    }
+    return best - start.score();
+}
+
 void report(const sim::Terrain& terrain, const char* seed, const std::vector<Action>& plan, bool shield) {
     Game game(terrain, seed);
     game.set_spawn_shield(shield);
@@ -249,6 +328,11 @@ int main(int argc, char** argv) {
         else if (name == "--pocket-value") options.pocket_value = value;
         else if (name == "--flood") options.flood = value;
         else if (name == "--net-weight") options.net_weight = value;
+        else if (name == "--data") options.data = argv[i + 1];
+        else if (name == "--samples") options.samples = static_cast<int>(value);
+        else if (name == "--every") options.every = static_cast<int>(value);
+        else if (name == "--label-width") options.label_width = static_cast<int>(value);
+        else if (name == "--label-step") options.label_step = static_cast<int>(value);
         else if (name == "--net") {
             if (!net.load(argv[i + 1])) {
                 std::fputs("can't read the net file\n", stderr);
@@ -264,44 +348,48 @@ int main(int argc, char** argv) {
     beam.emplace_back(terrain, seed);
     beam.back().set_spawn_shield(options.shield);
     std::vector<std::vector<Link>> history(sim::kMaxTicks + 1);
+    std::ofstream data;
+    if (!options.data.empty()) data.open(options.data, std::ios::binary);
+    uint32_t draw = 2166136261u;
+    for (const char* c = seed; *c != 0; c++) draw = (draw ^ static_cast<uint8_t>(*c)) * 16777619u;
 
     for (int turn = 1; turn <= sim::kMaxTicks; turn++) {
         std::vector<std::vector<Candidate>> found(options.threads);
         std::vector<std::vector<Action>> scratch(options.threads);
         parallel_for(static_cast<int>(beam.size()), options.threads, [&](int index, int worker) {
-            const Game& state = beam[index];
-            list_actions(state, options, scratch[worker]);
-            double flood = 0;
-            Game bare = state;
-            if (options.flood > 0) {
-                bare.clear_dinosaurs();
-                flood = sim::flood_outlook(bare, turn, {}, kFloodLookahead, kPocketLimit);
-            }
-            for (const Action& action : scratch[worker]) {
-                Game next = state;
-                if (!next.step(turn, action)) continue;
-                Game rolled = next;
-                int last = std::min(sim::kMaxTicks, turn + kRolloutTicks);
-                for (int future = turn + 1; future <= last; future++) rolled.step(future, Action{});
-                double value = evaluate(rolled, last + 1, options);
-                if (options.flood > 0) {
-                    bool volcano = action.type == Action::Type::TriggerVolcano;
-                    value += options.flood * (volcano ? sim::flood_outlook(bare, turn, {{0, action}}, kFloodLookahead, kPocketLimit) : flood);
-                }
-                found[worker].push_back({value, state_hash(rolled), index, action});
-            }
+            expand(beam[index], index, turn, options, scratch[worker], found[worker]);
         });
 
         std::vector<Candidate> all;
         for (auto& items : found) all.insert(all.end(), items.begin(), items.end());
-        // A total order, so results don't depend on thread timing.
-        std::sort(all.begin(), all.end(), [](const Candidate& a, const Candidate& b) {
-            if (a.value != b.value) return a.value > b.value;
-            if (a.parent != b.parent) return a.parent < b.parent;
-            if (a.action.type != b.action.type) return a.action.type < b.action.type;
-            if (a.action.x != b.action.x) return a.action.x < b.action.x;
-            return a.action.y < b.action.y;
-        });
+        std::sort(all.begin(), all.end(), ranks_higher);
+
+        if (data.is_open() && turn % options.every == 0 && turn + kRolloutTicks + kLabelWindow <= sim::kMaxTicks) {
+            std::vector<Game> samples;
+            for (int i = 0; i < options.samples && !all.empty(); i++) {
+                draw = draw * 1664525u + 1013904223u;
+                size_t range = i % 2 == 0 ? std::min<size_t>(all.size(), width) : all.size();
+                const Candidate& candidate = all[(draw >> 8) % range];
+                samples.push_back(beam[candidate.parent]);
+                samples.back().step(turn, candidate.action);
+                for (int future = turn + 1; future <= turn + kRolloutTicks; future++) samples.back().step(future, Action{});
+            }
+            int first = turn + kRolloutTicks + 1;
+            std::vector<int32_t> points(samples.size());
+            Options label_options = options;
+            label_options.grid_step = options.label_step;
+            parallel_for(static_cast<int>(samples.size()), options.threads, [&](int index, int) {
+                points[index] = label_points(samples[index], first, options.label_width, label_options);
+            });
+            for (size_t i = 0; i < samples.size(); i++) {
+                uint8_t features[sim::kFeatureBytes];
+                sim::encode_features(samples[i], first, features);
+                int32_t tick = first;
+                data.write(reinterpret_cast<const char*>(&tick), sizeof(tick));
+                data.write(reinterpret_cast<const char*>(&points[i]), sizeof(points[i]));
+                data.write(reinterpret_cast<const char*>(features), sizeof(features));
+            }
+        }
 
         std::vector<Game> next_beam;
         next_beam.reserve(width);

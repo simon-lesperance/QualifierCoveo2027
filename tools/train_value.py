@@ -20,6 +20,7 @@ CELLS = 400
 FEATURE_BYTES = CHANNELS * CELLS + GLOBALS
 TICKS = 1001
 RECORD = np.dtype([("tick", "<i4"), ("features", "u1", FEATURE_BYTES)])
+LABELLED = np.dtype([("tick", "<i4"), ("points", "<i4"), ("features", "u1", FEATURE_BYTES)])
 
 
 class ValueNet(nn.Module):
@@ -42,9 +43,16 @@ class ValueNet(nn.Module):
 
 def load_games(folders: list[Path], window: int, group_size: int, group_bonus: float):
     features, targets, seeds, ticks = [], [], [], []
-    paths = [path for folder in folders for path in sorted(folder.glob("*.bin"))]
+    paths = [path for folder in folders for path in sorted(folder.glob("*.bin")) + sorted(folder.glob("*.lab"))]
     for index, path in enumerate(paths):
         raw = path.read_bytes()
+        if path.suffix == ".lab":  # From sim_search --data, which sets each target itself.
+            records = np.frombuffer(raw, LABELLED)
+            features.append(records["features"])
+            targets.append(records["points"] / 1000.0)
+            seeds.append(np.full(len(records), index))
+            ticks.append(records["tick"])
+            continue
         score = np.frombuffer(raw, "<i4", TICKS)
         kills = np.frombuffer(raw, "<i4", TICKS, TICKS * 4)
         count = int(np.frombuffer(raw, "<i4", 1, TICKS * 8)[0])
