@@ -40,6 +40,8 @@ class VecEnv:
         self.lib.vec_observe.argtypes = [ctypes.c_void_p] + [ctypes.c_void_p] * 2
         self.lib.vec_step.argtypes = [ctypes.c_void_p] + [ctypes.c_void_p] * 7
         self.lib.vec_destroy.argtypes = [ctypes.c_void_p]
+        self.lib.vec_set_plans.restype = ctypes.c_int
+        self.lib.vec_set_plans.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_double]
         self.handle = self.lib.vec_create(envs, threads, biomes, prefix.encode(), int(desync))
         self.features = np.zeros((envs, FEATURE_BYTES), dtype=np.uint8)
         self.ticks = np.zeros(envs, dtype=np.int32)
@@ -201,6 +203,8 @@ def main() -> None:
     parser.add_argument("--group-bonus", type=float, default=0,
                         help="Multiplies a tick's reward by 1 + bonus * (kills - 1), early in training only")
     parser.add_argument("--bonus-hours", type=float, default=0)
+    parser.add_argument("--plans", type=Path, help="From tools/extract_plans.py. Some games start inside these plans")
+    parser.add_argument("--plan-share", type=float, default=0.5)
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -232,6 +236,8 @@ def main() -> None:
     print(f"{sum(p.numel() for p in net.parameters()):,} parameters", flush=True)
 
     env = VecEnv(args.envs, args.threads, args.biomes, f"{args.out.name}-{iteration}", True)
+    if args.plans:
+        print(env.lib.vec_set_plans(env.handle, str(args.plans).encode(), args.plan_share), "plans", flush=True)
     n, t = args.envs, args.steps
     features = torch.zeros(t, n, FEATURE_BYTES, dtype=torch.uint8, device=device)
     ticks = torch.zeros(t, n, dtype=torch.int32, device=device)
