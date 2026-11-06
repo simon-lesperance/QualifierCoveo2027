@@ -34,6 +34,8 @@ def compile_program(name: str, main_source: str, target: str | None = None, suff
 
 def compile_library(output: Path, target: str | None = None) -> None:
     command = [sys.executable, "-m", "ziglang", "c++", *FLAGS, "-shared", "-fPIC"]
+    if target == LINUX_TARGET:
+        command.append("-march=x86_64_v3")  # The server's Xeon has it, and rich/dev measured more search per tick.
     if target:
         command += ["-target", target]
     command += ["-o", str(output), *(str(SIM / source) for source in [*ENGINE_SOURCES, "capi.cpp"])]

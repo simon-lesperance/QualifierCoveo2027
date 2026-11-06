@@ -21,7 +21,7 @@ IMPASSABLE, MOUNTAIN, LAVA = 1, 2, 4
 SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus": 3}
 
 # The limit is 150 ms, but even a trivial bot sees spikes of up to 65 ms.
-TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "120"))
+TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
 # The next tick normally arrives about 3 ms after we reply (p95 5.4 ms on the server). When the
 # host stalls us between ticks, the gap beyond this grace is time the server's clock already spent,
 # so the budget shrinks by it.
