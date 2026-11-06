@@ -120,6 +120,7 @@ int main(int argc, char** argv) {
         else if (name == "--policy-targets") config.policy_targets = value;
         else if (name == "--prior-floor") config.prior_floor = std::atof(argv[i + 1]);
         else if (name == "--policy") policy_path = argv[i + 1];
+        else if (name == "--policy-only") config.policy_only = value != 0;
         else if (name == "--log") log_folder = argv[i + 1];
         else if (name == "--rng-tag") rng_tag = argv[i + 1];
         else if (name == "--dice") config.dice = value;

@@ -47,6 +47,7 @@ struct AgentConfig {
     int policy_targets = 30;     // How many of its favourite actions to add to the list.
     double prior_floor = 0.1;    // Share of the prior spread over all actions, so none is ruled out.
     int policy_cost = 1500;      // Simulated ticks charged per evaluation, so tests stay fair on time.
+    bool policy_only = false;    // Plays the policy's top action, with no search.
 
     // Plans include waves at guessed tiles, drawn afresh each iteration. When the spawn
     // area is small, a meteor timed for the wave's first tick can kill all of it.
@@ -131,6 +132,7 @@ private:
     int rank_volcanoes(const Game& root, int tick);
     Choice search(const Game& root, int tick, int budget, double deadline_ms);
     Choice search_mcts(const Game& root, int tick, int budget, double deadline_ms);
+    Action policy_action(const Game& root, int tick);
 
     AgentConfig config_;
     int last_simulated_ = 0;

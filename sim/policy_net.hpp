@@ -10,12 +10,13 @@ namespace sim {
 // because the server has no ML libraries.
 class PolicyNet {
 public:
-    static constexpr int kPlanes = kChannels + 1 + 2 + kGlobals + 4;
+    static constexpr int kPlanes = kChannels + 1 + 2 + kGlobals + 4 + 4;
     static constexpr int kActions = 1 + 2 * kCells;
 
     bool load(const char* path);
 
-    // Fills logits: nothing, then a meteor per tile, then a volcano per tile.
+    // Takes bytes from encode_policy_features. Fills logits: nothing, then a meteor
+    // per tile, then a volcano per tile.
     // Legality isn't applied. Not safe to call from two threads at once.
     void evaluate(const uint8_t* features, int tick, float* logits);
 
