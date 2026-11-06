@@ -9,7 +9,7 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 3. **Hidden dice cost more than hidden terrain.** Dinosaur tie-breaks come from an RNG the bot can't see. Revealing them to an older bot added about 19,000, while true future rows added little at that stage. Today's bot gains at most +3,167 ±697 from true rows.
 4. **Tuning this search is exhausted at about 55,000.** Depth, widening, horizon, exploration, targets, caching and RAVE have all failed to beat v11 clearly.
 5. **More budget alone won't close the gap.** See [the budget tables](#budget-against-score).
-6. **Imitating foresight plays far better than imitating MCTS,** and PPO improves quickly from that start, but it levels off near 44,000 alone. As an MCTS prior it adds about +1,100 to the mean and nothing to top scores so far ([status.md](status.md)).
+6. **Imitating foresight plays far better than imitating MCTS,** and PPO improves quickly from that start, but it levels off near 44,000 alone. As an MCTS prior it adds +2,327 ±336 at the server's capacity, and more 80k+ games ([status.md](status.md)).
 
 ## Bot history
 
@@ -20,8 +20,8 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 | **v9** | Search simulates waves at guessed tiles | **85,231** |
 | v10 | Volcanoes ranked by flooding | 42,241 |
 | v11 | Only the three best-flooding volcanoes, gen2 net | 67,855 |
-| v12 (live) | x86-64-v3 library, late-tick fix | 67,461 |
-| v12 + PPO prior | PPO net as a root prior, 10 games only | 77,532 |
+| v12 | x86-64-v3 library, late-tick fix | 67,461 |
+| v12 + PPO prior (live) | PPO net as a root prior | 77,532 |
 
 Server scores are noisy, and 85,231 was a lucky game. On paired simulated games v11 is the strongest version.
 
@@ -97,7 +97,6 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Capping children per parent | 156,257-165,381 against 164,770, within noise |
 | Imitating MCTS visit counts | 8,777, far weaker than PPO |
 | PPO net as an MCTS prior, at about 31,000 strength | No gain |
-| PPO net as an MCTS prior, at about 44,000 strength | +1,155 ±473 on 360 paired games, no gain at 80k+. On the server, +4,484 ±1,899 over 10 games. Needs a bigger test |
 
 Why the fg1 value net lost: within one position and tick, both nets correlate only about 0.04 with outcomes. A value net is mainly learning which ticks are rich, which doesn't help choose between moves.
 

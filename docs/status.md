@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06, 09:50. This page goes stale fast, so check the date.
+Last updated: 2026-11-06, 11:00. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -9,7 +9,7 @@ Last updated: 2026-11-06, 09:50. This page goes stale fast, so check the date.
 | Best server game | **85,231** | v9. The leaderboard keeps the best single game |
 | Live bot (v11), server | 51,945, 50,895, 67,855, 60,551 | Four games |
 | Live bot (v12), server | 48,486 mean | 47 games, best 67,461 |
-| v12 with PPO prior, server | 54,518 mean | 10 games, best 77,532 |
+| v12 with PPO prior, server | 52,186 mean | 40 games, best 77,532 |
 | Live bot (v11), simulated | 54,667 mean | 240 games on two biomes, best 89,737 |
 | Foresight search, full seed knowledge | 229,399 | About 600 times the server budget. Not reachable live |
 | Leaderboard, 2026-11-03 | 204,657, 165,224, 81,238 | Ranks 1 to 3 |
@@ -24,19 +24,19 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 
 ## Server games on 2026-11-06
 
-60 games, none beating 85,231:
+90 games, none beating 85,231:
 
-| Build | Games | Mean | Best | Late ticks per game | Median simulated ticks per move |
+| Build | Games | Mean | Best | 60k+ games | Late ticks per game |
 |---|---|---|---|---|---|
-| 120 ms | 3 | 43,340 | 46,301 | 23.3 | 7,245 |
-| 95 ms, v3 library, late-tick fix (v32, v34) | 47 | 48,486 | 67,461 | 0.04 | 6,297 |
-| The same with the PPO prior (v33) | 10 | 54,518 | 77,532 | 1.4 | 6,525 |
+| 120 ms | 3 | 43,340 | 46,301 | 0 | 23.3 |
+| 95 ms, v3 library, late-tick fix (v32, v34) | 47 | 48,486 | 67,461 | 2 | 0.04 |
+| The same with the PPO prior (v33, v35) | 40 | 52,186 | 77,532 | 7 | 0.6 |
 
+- **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
-- **The PPO prior deserves a bigger test.** With biomes weighted equally it's +4,484 ±1,899 over the plain bot, far above its +1,155 ±473 in simulation. It has only 10 games, played as one block, and only 3 of them outside `volcanic_plains`, so this isn't proof.
-- **The server scores below simulation.** The plain bot averaged 49,735 on `volcanic_plains` (55,642 simulated) and 51,600 on `deep_crevasse` (54,605), and 43,066 on `mountain_range`. It ran about 6,300 simulated ticks per move, against 7,000 in the tests. So the simulated odds of 85,000+ were too high.
+- **The server scores below simulation at budget 7,000.** Test at `--budget 6300`, which is what the server gets today, and charge the policy `--policy-cost 700`.
 
-The active server build is v34, without the PPO prior. To build the prior version, copy `policy_net.bin` from a PPO run into `bots/search_bot/`, which is git-ignored, and run `tools/make_zip.py`. Delete the file afterwards.
+The active server build is v35, with the PPO prior. To build it, copy `policy_net.bin` from `runs/ppo/oracle1c/` into `bots/search_bot/`, which is git-ignored, and run `tools/make_zip.py`. Without that file, the bot plays without the prior.
 
 ## Latest: policy net from foresight play
 
@@ -62,7 +62,7 @@ As a root prior for v11's MCTS, at budget 7,000 with 1,500 charged for the net:
 | `--puct 0.3` | +934 ±564 | +1,155 ±473 | 7 against 9 | 117,205 |
 | `--puct 1` | +862 ±561 | +1,108 ±452 | 2 against 9 | 96,978 |
 
-That's a small gain in the mean, and all of it comes from `deep_crevasse`: +2,199 ±457 there and +111 ±822 on `volcanic_plains`. That split was only checked after the fact. High scores didn't improve, and v11 alone reached 101,218 in these tests, so a single 117,205 doesn't show much. The leaderboard rewards top scores, so this isn't enough to replace v11.
+These first tests overcharged the net, so they understate the prior. See the server section above.
 
 The net is in `runs/ppo/oracle1c/`, which isn't in git. `bot.py` loads it if `policy_net.bin` is in the bot folder.
 

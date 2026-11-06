@@ -376,6 +376,17 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                 untried.resize(actions.size());
                 for (size_t i = 0; i < actions.size(); i++) untried[i] = actions[order[i].second];
                 tree[node].opened = true;
+                if (config_.policy != nullptr && depth >= 1 && depth <= config_.policy_depth) {
+                    uint8_t features[kPolicyBytes];
+                    encode_policy_features(game, turn, features);
+                    float logits[PolicyNet::kActions];
+                    config_.policy->evaluate(features, turn, logits);
+                    int origin = game.origin_y();
+                    std::stable_sort(untried.begin(), untried.end(), [&](const Action& a, const Action& b) {
+                        return logits[action_code(a, origin)] > logits[action_code(b, origin)];
+                    });
+                    budget -= config_.policy_tree_cost;
+                }
             }
 
             int offset = turn - tick;
