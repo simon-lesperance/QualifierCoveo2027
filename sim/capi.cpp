@@ -29,12 +29,23 @@ SIM_EXPORT void sim_agent_destroy(void* agent) {
     delete static_cast<sim::Agent*>(agent);
 }
 
-SIM_EXPORT void sim_agent_set_targeting(void* agent, int aim_predicted, int volcano_near_dinos) {
-    static_cast<sim::Agent*>(agent)->set_targeting(aim_predicted != 0, volcano_near_dinos != 0);
+// Returns 0 if the file can't be read. The net must outlive the agent, so it's never freed.
+SIM_EXPORT int sim_agent_load_net(void* agent, const char* path, double weight) {
+    auto* net = new sim::ValueNet();
+    if (!net->load(path)) {
+        delete net;
+        return 0;
+    }
+    static_cast<sim::Agent*>(agent)->set_net(net, weight);
+    return 1;
 }
 
-SIM_EXPORT void sim_agent_set_optimism(void* agent, double weight) {
-    static_cast<sim::Agent*>(agent)->set_optimism(weight);
+SIM_EXPORT void sim_agent_set_waves(void* agent, int pocket_limit, int pocket_targets, double pocket_weight) {
+    static_cast<sim::Agent*>(agent)->set_waves(pocket_limit, pocket_targets, pocket_weight);
+}
+
+SIM_EXPORT void sim_agent_set_volcano_rank(void* agent, int on) {
+    static_cast<sim::Agent*>(agent)->set_volcano_rank(on != 0);
 }
 
 // Writes the chosen action: type 0 none, 1 meteor, 2 volcano.
@@ -50,22 +61,4 @@ SIM_EXPORT void sim_agent_act(void* agent, const sim::Observation* observation, 
 // Simulated ticks spent on the last act() call.
 SIM_EXPORT int sim_agent_last_simulated(void* agent) {
     return static_cast<sim::Agent*>(agent)->last_simulated();
-}
-
-// Starts an anytime search for this observation. Returns 0 when there is nothing to decide.
-SIM_EXPORT int sim_agent_begin(void* agent, const sim::Observation* observation) {
-    return static_cast<sim::Agent*>(agent)->begin(*observation) ? 1 : 0;
-}
-
-// Grows the current search for up to time_ms, then writes its best action (same encoding as act).
-SIM_EXPORT void sim_agent_resume(void* agent, double time_ms, int* type, int* x, int* y) {
-    sim::Action action = static_cast<sim::Agent*>(agent)->resume(time_ms);
-    *type = static_cast<int>(action.type);
-    *x = action.x;
-    *y = action.y;
-}
-
-// Asks a running resume() on another thread to return early. Safe to call from any thread.
-SIM_EXPORT void sim_agent_stop(void* agent) {
-    static_cast<sim::Agent*>(agent)->stop();
 }

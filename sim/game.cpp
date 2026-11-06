@@ -285,6 +285,16 @@ Game Game::from_observation(const Observation& observation, uint32_t rng_seed) {
     return game;
 }
 
+void Game::enable_waves(int tick, int highest_id) {
+    waves_enabled_ = true;
+    wave_cursor_ = static_cast<int16_t>((highest_id + kDinosPerWave - 1) / kDinosPerWave);
+    next_dino_id_ = highest_id + 1;
+    map_clear_last_tick_ = dino_count_ == 0;
+    int newest = 0;
+    for (int i = 0; i < dino_count_; i++) newest = std::max<int>(newest, dinos_[i].spawn_turn);
+    last_wave_turn_ = static_cast<int16_t>(dino_count_ > 0 ? newest : tick - 1);
+}
+
 void Game::hide(bool rows, bool rng, bool waves, uint32_t rng_seed) {
     if (rows) terrain_ = nullptr;
     if (rng) rng_ = Arc4(rng_seed);

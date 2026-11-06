@@ -1,8 +1,7 @@
 """Build the C++ simulator with Zig, which needs no other compiler.
 
-python tools/build_sim.py             # host tools and bot libraries
-python tools/build_sim.py --linux     # also build Linux upload artifacts
-python tools/build_sim.py --windows   # also cross-compile Windows artifacts
+    python tools/build_sim.py            # Windows tools in build/
+    python tools/build_sim.py --linux    # adds Linux builds, including the bot's library
 """
 
 import argparse
@@ -22,6 +21,7 @@ ENGINE_SOURCES = [
     "agent.cpp",
     "features.cpp",
     "value_net.cpp",
+    "policy_net.cpp",
 ]
 PROGRAMS = {
     "sim_replay": "replay_main.cpp",
@@ -32,19 +32,21 @@ PROGRAMS = {
     "sim_nettest": "nettest_main.cpp",
     "sim_patience": "patience_main.cpp",
     "sim_triple": "triple_main.cpp",
+    "sim_policygen": "policygen_main.cpp",
+    "sim_policytest": "policytest_main.cpp",
+    "sim_pocket": "pocket_main.cpp",
+    "sim_carve": "carve_main.cpp",
+    "sim_probe": "probe_main.cpp",
 }
 
 # -ffp-contract=off keeps floating-point results identical to the JS engine's.
 FLAGS = [
     "-std=c++20",
-    "-O3",
+    "-O2",
     "-DNDEBUG",
     "-ffp-contract=off",
     "-fno-sanitize=undefined",
     "-Wno-nullability-completeness",
-    "-flto",
-    "-march=native",
-    "-g",
 ]
 LINUX_TARGET = "x86_64-linux-gnu.2.31"
 WINDOWS_TARGET = "x86_64-windows-gnu"
@@ -53,17 +55,14 @@ PROBE_DIR = ROOT / "experiments" / "probe_bot"
 
 
 def zig_python() -> str:
-    """Use this interpreter if it has ziglang, otherwise the project's .venv one."""
     if importlib.util.find_spec("ziglang") is not None:
         return sys.executable
-    venv_python = (
-        ROOT
-        / ".venv"
-        / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    venv_python = ROOT / ".venv" / (
+        "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
     )
     if venv_python.exists():
         return str(venv_python)
-    sys.exit("ziglang not found: install requirements-dev.txt into .venv (see README)")
+    sys.exit("ziglang not found: install requirements-dev.txt into .venv")
 
 
 def compile_program(
@@ -104,6 +103,12 @@ def compile_library(output: Path, target: str | None = None) -> None:
     )
 
 
+def compile_vec_env(output: Path, target: str | None = None) -> None:
+    compile_shared(
+        output, [SIM / source for source in [*ENGINE_SOURCES, "vec_env.cpp"]], target
+    )
+
+
 def build_targets(linux: bool, windows: bool) -> list[tuple[str, str | None]]:
     targets = {sys.platform: None}
     if linux:
@@ -115,14 +120,8 @@ def build_targets(linux: bool, windows: bool) -> list[tuple[str, str | None]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--linux",
-        action="store_true",
-        help="also build x86-64 Linux artifacts for upload",
-    )
-    parser.add_argument(
-        "--windows", action="store_true", help="also build x86-64 Windows artifacts"
-    )
+    parser.add_argument("--linux", action="store_true", help="also build x86-64 Linux artifacts")
+    parser.add_argument("--windows", action="store_true", help="also build x86-64 Windows artifacts")
     args = parser.parse_args()
 
     BUILD.mkdir(exist_ok=True)
@@ -136,6 +135,7 @@ def main() -> None:
             target,
             c=True,
         )
+        compile_vec_env(BUILD / library_name("vec", platform), target)
 
 
 if __name__ == "__main__":

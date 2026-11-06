@@ -39,6 +39,7 @@ class PlatformPathsTest(unittest.TestCase):
                 patch.object(build_sim, "compile_program") as program,
                 patch.object(build_sim, "compile_library") as library,
                 patch.object(build_sim, "compile_shared") as shared,
+                patch.object(build_sim, "compile_vec_env") as vec_env,
                 patch.object(Path, "mkdir"),
             ):
                 build_sim.main()
@@ -50,6 +51,7 @@ class PlatformPathsTest(unittest.TestCase):
                     build_sim.PROBE_DIR / library_name("probe", host),
                     [build_sim.PROBE_DIR / "probe_native.c"], None, c=True,
                 )
+                vec_env.assert_called_once_with(BUILD / library_name("vec", host), None)
 
     def test_shared_library_flags_match_target_not_host(self):
         for host in ("linux", "win32"):

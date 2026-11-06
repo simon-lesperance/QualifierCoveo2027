@@ -19,37 +19,70 @@ double now_ms() {
     return duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();
 }
 
-void mark_around(int cell, int radius, bool* wanted) {
+// How many spawn tiles a meteor on `cell` would cover.
+int pocket_cover(const uint8_t* mask, int cell) {
     int row = cell / kWidth;
     int column = cell % kWidth;
-    for (int dy = -radius; dy <= radius; dy++) {
-        int reach = radius - std::abs(dy);
-        for (int dx = -reach; dx <= reach; dx++) {
-            if (row + dy >= 0 && row + dy < kHeight && column + dx >= 0 && column + dx < kWidth) {
-                wanted[(row + dy) * kWidth + column + dx] = true;
+    int count = 0;
+    constexpr int kSquared = kMeteorRadius * kMeteorRadius;
+    for (int dy = -kMeteorRadius; dy <= kMeteorRadius; dy++) {
+        for (int dx = -kMeteorRadius; dx <= kMeteorRadius; dx++) {
+            int r = row + dy;
+            int c = column + dx;
+            if (dx * dx + dy * dy <= kSquared && r >= 0 && r < kHeight && c >= 0 && c < kWidth) {
+                count += mask[r * kWidth + c] != 0;
             }
         }
     }
+    return count;
 }
 
-void list_actions(const Game& game, int turn, const AgentConfig& config, std::vector<Action>& actions) {
+// Points a meteor timed for a new wave's first tick could expect, given the spawn area.
+double pocket_value(const Game& game, int limit) {
+    uint8_t mask[kCells];
+    int size = game.spawn_mask(mask);
+    if (size > limit || size == 0) return 0;
+    int cover = 0;
+    for (int cell = 0; cell < kCells; cell++) {
+        if (mask[cell]) cover = std::max(cover, pocket_cover(mask, cell));
+    }
+    double kills = std::min<double>(cover, kDinosPerWave * static_cast<double>(cover) / std::max(size, kDinosPerWave));
+    constexpr double kFreshValue = 164;
+    return kFreshValue * kills * (1 + 0.5 * (kills - 1));
+}
+
+void list_actions(const Game& game, const AgentConfig& config, std::vector<Action>& actions,
+                  const std::vector<Action>* volcano_list = nullptr) {
     actions.clear();
     actions.push_back(Action{});
     int origin = game.origin_y();
 
     if (game.meteor_count() < kMaxMeteors) {
         bool wanted[kCells] = {};
-        if (config.aim_current) {
-            for (int i = 0; i < game.dino_count(); i++) mark_around(game.dino(i).cell, config.radius, wanted);
+        for (int i = 0; i < game.dino_count(); i++) {
+            int row = game.dino(i).cell / kWidth;
+            int column = game.dino(i).cell % kWidth;
+            for (int dy = -config.radius; dy <= config.radius; dy++) {
+                int reach = config.radius - std::abs(dy);
+                for (int dx = -reach; dx <= reach; dx++) {
+                    if (row + dy >= 0 && row + dy < kHeight && column + dx >= 0 && column + dx < kWidth) {
+                        wanted[(row + dy) * kWidth + column + dx] = true;
+                    }
+                }
+            }
         }
-        if (config.aim_predicted) {
-            Game future = game;
-            int last = std::min(kMaxTicks, turn + kMeteorDelay - 1);
-            for (int t = turn; t <= last; t++) future.step(t, Action{});
-            int shift = future.origin_y() - game.origin_y();
-            for (int i = 0; i < future.dino_count(); i++) {
-                int cell = future.dino(i).cell + shift * kWidth;  // Back to today's frame.
-                if (cell < kCells) mark_around(cell, config.radius, wanted);
+        if (config.plan_waves && config.pocket_targets > 0) {
+            uint8_t mask[kCells];
+            int size = game.spawn_mask(mask);
+            if (size <= config.pocket_limit) {
+                int covered[kCells];
+                for (int cell = 0; cell < kCells; cell++) covered[cell] = pocket_cover(mask, cell);
+                for (int pick = 0; pick < config.pocket_targets; pick++) {
+                    int best = static_cast<int>(std::max_element(covered, covered + kCells) - covered);
+                    if (covered[best] == 0) break;
+                    wanted[best] = true;
+                    covered[best] = 0;
+                }
             }
         }
         if (config.grid) {
@@ -67,29 +100,18 @@ void list_actions(const Game& game, int turn, const AgentConfig& config, std::ve
         }
     }
 
-    if (game.volcano_count() < kMaxVolcanoes && config.volcanoes > 0) {
+    if (game.volcano_count() < kMaxVolcanoes && volcano_list != nullptr && !volcano_list->empty()) {
+        for (const Action& action : *volcano_list) {
+            int row = action.y - origin;
+            if (row >= 0 && row < kHeight) actions.push_back(action);
+        }
+    } else if (game.volcano_count() < kMaxVolcanoes && config.volcanoes > 0) {
         int mountains[kCells];
         int count = 0;
         for (int cell = 0; cell < kCells; cell++) {
             if (game.flags(cell) & kMountain) mountains[count++] = cell;
         }
-        if (config.volcano_near_dinos && game.dino_count() > 0) {
-            int distances[kCells] = {};
-            for (int i = 0; i < count; i++) {
-                int cell = mountains[i];
-                int best = 1000;
-                for (int dino = 0; dino < game.dino_count(); dino++) {
-                    int other = game.dino(dino).cell;
-                    best = std::min(best, std::abs(cell % kWidth - other % kWidth) +
-                                              std::abs(cell / kWidth - other / kWidth));
-                }
-                distances[cell] = best;
-            }
-            std::stable_sort(mountains, mountains + count,
-                             [&](int a, int b) { return distances[a] < distances[b]; });
-            count = std::min(count, config.volcanoes);
-        }
-        int stride = config.volcano_near_dinos ? 1 : std::max(1, count / config.volcanoes);
+        int stride = std::max(1, count / config.volcanoes);
         for (int i = 0; i < count; i += stride) {
             Action action;
             action.type = Action::Type::TriggerVolcano;
@@ -141,7 +163,7 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
         bool out_of_time = false;
 
         for (int parent = 0; parent < static_cast<int>(frontier.size()) && !out_of_time; parent++) {
-            list_actions(frontier[parent].game, turn, config_, actions);
+            list_actions(frontier[parent].game, config_, actions);
             for (const Action& action : actions) {
                 if (budget <= 0 || (deadline_ms > 0 && now_ms() >= deadline_ms)) {
                     out_of_time = true;
@@ -181,42 +203,63 @@ Agent::Choice Agent::search(const Game& root, int tick, int budget, double deadl
 namespace {
 
 // Actions most likely to matter first, so widening reaches them early.
-void sort_actions(const Game& game, std::vector<Action>& actions) {
-    int promises[kCells] = {};
+double action_promise(const Game& game, const Action& action, const uint8_t* pocket, int pocket_size) {
+    if (action.type == Action::Type::None) return 0.5;
+    if (action.type == Action::Type::TriggerVolcano) return 1;
+    double count = 0;
+    if (pocket != nullptr) {
+        int cell = (action.y - game.origin_y()) * kWidth + action.x;
+        count = pocket_cover(pocket, cell) * static_cast<double>(kDinosPerWave) / std::max(pocket_size, kDinosPerWave);
+    }
     constexpr int kSquared = kMeteorRadius * kMeteorRadius;
     for (int i = 0; i < game.dino_count(); i++) {
-        int row = game.dino(i).cell / kWidth;
-        int column = game.dino(i).cell % kWidth;
-        for (int dy = -kMeteorRadius; dy <= kMeteorRadius; dy++) {
-            for (int dx = -kMeteorRadius; dx <= kMeteorRadius; dx++) {
-                int target_row = row + dy;
-                int target_column = column + dx;
-                if (dx * dx + dy * dy <= kSquared && target_row >= 0 && target_row < kHeight &&
-                    target_column >= 0 && target_column < kWidth) {
-                    promises[target_row * kWidth + target_column]++;
-                }
-            }
-        }
+        int dx = game.dino(i).cell % kWidth - action.x;
+        int dy = game.dino(i).cell / kWidth + game.origin_y() - action.y;
+        if (dx * dx + dy * dy <= kSquared) count++;
     }
-    auto promise = [&](const Action& action) {
-        if (action.type == Action::Type::None) return 0.5;
-        if (action.type == Action::Type::TriggerVolcano) return 1.0;
-        int row = action.y - game.origin_y();
-        return row >= 0 && row < kHeight && action.x >= 0 && action.x < kWidth
-                   ? static_cast<double>(promises[row * kWidth + action.x])
-                   : 0.0;
-    };
-    std::stable_sort(actions.begin(), actions.end(),
-                     [&](const Action& a, const Action& b) { return promise(a) > promise(b); });
+    return count;
 }
 
 struct Edge {
     Action action;
     int visits = 0;
     double total = 0;
-    double best = -std::numeric_limits<double>::infinity();
+    double best = -1e300;
     int child = -1;
+    float prior = 0;
 };
+
+int action_code(const Action& action, int origin) {
+    if (action.type == Action::Type::None) return 0;
+    int cell = (action.y - origin) * kWidth + action.x;
+    return (action.type == Action::Type::LaunchMeteor ? 1 : 1 + kCells) + cell;
+}
+
+Action action_from_code(int code, int origin) {
+    Action action;
+    if (code == 0) return action;
+    int cell = (code - 1) % kCells;
+    action.type = code <= kCells ? Action::Type::LaunchMeteor : Action::Type::TriggerVolcano;
+    action.x = cell % kWidth;
+    action.y = cell / kWidth + origin;
+    return action;
+}
+
+// Shared record of an action at one tick of the plan, for RAVE.
+struct Amaf {
+    int visits = 0;
+    double total = 0;
+};
+
+constexpr int kAmafOffsets = 16;
+constexpr int kAmafRows = 24;  // A frame, plus the rows a plan can scroll in.
+constexpr int kAmafKeys = 1 + 2 * kAmafRows * kWidth;
+
+int amaf_key(const Action& action, int origin) {
+    if (action.type == Action::Type::None) return 0;
+    int cell = (action.y - origin) * kWidth + action.x;
+    return 1 + (action.type == Action::Type::LaunchMeteor ? 0 : kAmafRows * kWidth) + cell;
+}
 
 struct TreeNode {
     bool opened = false;
@@ -228,97 +271,169 @@ struct TreeNode {
 
 }  // namespace
 
-struct MctsState {
-    MctsState(const Game& root_game, int root_tick, int sim_budget)
-        : root(root_game), tick(root_tick), budget(sim_budget), tree(1) {
-        tree.reserve(4096);
-    }
-
-    Game root;
-    int tick;
-    int budget;
-    std::vector<TreeNode> tree;
+Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double deadline_ms) {
+    std::vector<TreeNode> tree(1);
+    tree.reserve(4096);
     std::vector<Action> actions;
     double lowest_reward = std::numeric_limits<double>::infinity();
     double highest_reward = -std::numeric_limits<double>::infinity();
     uint32_t iteration = 0;
-    bool finished = false;  // Nothing left to decide, so further runs are no-ops.
-};
 
-Agent::Agent(AgentConfig config) : config_(config) {}
+    // The prior of each action at the root, by action code.
+    std::vector<float> prior;
+    if (config_.policy != nullptr) {
+        prior.assign(PolicyNet::kActions, 0);
+        uint8_t features[kFeatureBytes];
+        encode_features(root, tick, features);
+        float logits[PolicyNet::kActions];
+        config_.policy->evaluate(features, tick, logits);
 
-Agent::~Agent() = default;
+        bool meteors_free = root.meteor_count() < kMaxMeteors;
+        bool volcano_free = root.volcano_count() < kMaxVolcanoes;
+        float top = logits[0];
+        int legal[PolicyNet::kActions];
+        int legal_count = 0;
+        legal[legal_count++] = 0;
+        for (int cell = 0; cell < kCells; cell++) {
+            if (meteors_free) legal[legal_count++] = 1 + cell;
+            if (volcano_free && (root.flags(cell) & kMountain)) legal[legal_count++] = 1 + kCells + cell;
+        }
+        double sum = 0;
+        for (int i = 0; i < legal_count; i++) top = std::max(top, logits[legal[i]]);
+        for (int i = 0; i < legal_count; i++) {
+            prior[legal[i]] = std::exp(logits[legal[i]] - top);
+            sum += prior[legal[i]];
+        }
+        for (int i = 0; i < legal_count; i++) {
+            prior[legal[i]] = static_cast<float>((1 - config_.prior_floor) * prior[legal[i]] / sum + config_.prior_floor / legal_count);
+        }
 
-Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double deadline_ms) {
-    MctsState state(root, tick, budget);
-    mcts_run(state, deadline_ms);
-    return mcts_best(state);
-}
+        list_actions(root, config_, actions);
+        std::vector<char> listed(PolicyNet::kActions, 0);
+        for (const Action& action : actions) listed[action_code(action, root.origin_y())] = 1;
+        std::sort(legal, legal + legal_count, [&](int a, int b) { return prior[a] > prior[b]; });
+        for (int i = 0; i < std::min(legal_count, config_.policy_targets); i++) {
+            if (!listed[legal[i]]) actions.push_back(action_from_code(legal[i], root.origin_y()));
+        }
+        std::stable_sort(actions.begin(), actions.end(), [&](const Action& a, const Action& b) {
+            return prior[action_code(a, root.origin_y())] > prior[action_code(b, root.origin_y())];
+        });
+        tree[0].untried = actions;
+        tree[0].opened = true;
+        budget -= config_.policy_cost;
+    }
 
-void Agent::mcts_run(MctsState& state, double deadline_ms) {
-    const Game& root = state.root;
-    const int tick = state.tick;
-    int& budget = state.budget;
-    std::vector<TreeNode>& tree = state.tree;
-    std::vector<Action>& actions = state.actions;
-    double& lowest_reward = state.lowest_reward;
-    double& highest_reward = state.highest_reward;
-    uint32_t& iteration = state.iteration;
+    // Keyed by node * dice + guess. Index into cached_states_, and the finished line's value.
+    constexpr double kNoReward = -1e300;
+    int dice = config_.dice;
+    std::vector<int> state_index;
+    std::vector<double> leaf_reward;
+    auto grow_caches = [&] {
+        state_index.resize(tree.size() * dice, -1);
+        leaf_reward.resize(tree.size() * dice, kNoReward);
+    };
+    std::vector<Game> dice_roots;
+    if (dice > 0) {
+        cached_states_.clear();
+        grow_caches();
+        for (int guess = 0; guess < dice; guess++) {
+            dice_roots.push_back(root);
+            dice_roots.back().hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + guess * 40503u);
+        }
+    }
 
-    while (!state.finished && budget > 0 && (deadline_ms <= 0 || now_ms() < deadline_ms) &&
-           !stop_.load(std::memory_order_relaxed)) {
-        Game game = root;
-        game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + iteration * 40503u);
+    std::vector<Amaf> amaf(config_.rave_k > 0 ? kAmafOffsets * kAmafKeys : 0);
+    auto shared = [&](int offset, const Action& action) -> Amaf& {
+        return amaf[std::min(offset, kAmafOffsets - 1) * kAmafKeys + amaf_key(action, root.origin_y())];
+    };
+
+    while (budget > 0 && (deadline_ms <= 0 || now_ms() < deadline_ms)) {
+        int guess = dice > 0 ? static_cast<int>(iteration % dice) : 0;
+        Game game = dice > 0 ? dice_roots[guess] : root;
+        if (dice == 0) game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + iteration * 40503u);
         iteration++;
 
         int path_node[32];
         int path_edge[32];
+        int path_offset[32];
         int path_length = 0;
         int node = 0;
         int turn = tick;
+        int depth = 0;
 
-        for (int depth = 0; depth < config_.mcts_depth && turn <= kMaxTicks; depth++) {
-            // With every meteor in the air there is nothing to decide.
-            if (game.meteor_count() >= kMaxMeteors && game.volcano_count() >= kMaxVolcanoes) {
-                game.step(turn++, Action{});
-                budget--;
-                continue;
-            }
-
+        while (depth < config_.mcts_depth && turn <= kMaxTicks) {
             if (!tree[node].opened) {
-                AgentConfig targeting = config_;
-                targeting.aim_predicted = config_.aim_predicted && node == 0;
-                list_actions(game, turn, targeting, actions);
-                if (targeting.aim_predicted && game.meteor_count() < kMaxMeteors) {
-                    budget -= std::min(kMeteorDelay, kMaxTicks - turn + 1);
+                list_actions(game, config_, actions, &ranked_volcanoes_);
+                uint8_t pocket[kCells];
+                int pocket_size = kCells;
+                if (config_.plan_waves) pocket_size = game.spawn_mask(pocket);
+                bool small = config_.plan_waves && pocket_size <= config_.pocket_limit;
+                std::vector<std::pair<double, int>> order(actions.size());
+                for (size_t i = 0; i < actions.size(); i++) {
+                    order[i] = {action_promise(game, actions[i], small ? pocket : nullptr, pocket_size), static_cast<int>(i)};
                 }
-                sort_actions(game, actions);
-                tree[node].untried = actions;
+                std::stable_sort(order.begin(), order.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+                std::vector<Action>& untried = tree[node].untried;
+                untried.resize(actions.size());
+                for (size_t i = 0; i < actions.size(); i++) untried[i] = actions[order[i].second];
                 tree[node].opened = true;
             }
 
+            int offset = turn - tick;
             int edge_index = -1;
             size_t allowed = 1 + static_cast<size_t>(config_.widening * std::sqrt(static_cast<double>(tree[node].visits)));
             if (tree[node].edges.size() < allowed &&
                 tree[node].next_untried < static_cast<int>(tree[node].untried.size())) {
+                std::vector<Action>& untried = tree[node].untried;
+                if (config_.rave_k > 0 && config_.rave_order && node != 0) {
+                    constexpr int kMinShared = 3;
+                    double total = 0;
+                    int visits = 0;
+                    for (const Edge& edge : tree[node].edges) {
+                        total += edge.total;
+                        visits += edge.visits;
+                    }
+                    double best_mean = visits > 0 ? total / visits : -1e300;
+                    int best = -1;
+                    for (int i = tree[node].next_untried; i < static_cast<int>(untried.size()); i++) {
+                        const Amaf& record = shared(offset, untried[i]);
+                        if (record.visits < kMinShared) continue;
+                        double mean = record.total / record.visits;
+                        if (mean > best_mean) {
+                            best_mean = mean;
+                            best = i;
+                        }
+                    }
+                    if (best >= 0) std::swap(untried[tree[node].next_untried], untried[best]);
+                }
                 Edge edge;
-                edge.action = tree[node].untried[tree[node].next_untried++];
+                edge.action = untried[tree[node].next_untried++];
+                if (node == 0 && !prior.empty()) edge.prior = prior[action_code(edge.action, root.origin_y())];
                 tree[node].edges.push_back(edge);
                 edge_index = static_cast<int>(tree[node].edges.size()) - 1;
             } else {
                 double log_visits = std::log(tree[node].visits + 1.0);
                 double reward_range = std::max(1.0, highest_reward - lowest_reward);
+                double root_factor = std::sqrt(static_cast<double>(tree[node].visits));
+                bool use_prior = node == 0 && !prior.empty();
                 double best_score = -1e18;
                 for (int i = 0; i < static_cast<int>(tree[node].edges.size()); i++) {
                     const Edge& edge = tree[node].edges[i];
-                    double mean = edge.visits > 0 ? edge.total / edge.visits : 0;
-                    double value = config_.optimism > 0
-                                       ? mean + config_.optimism * (edge.best - mean)
-                                       : mean;
-                    double score = edge.visits == 0
-                                       ? 1e17
-                                       : (value - lowest_reward) / reward_range +
-                                             config_.exploration * std::sqrt(log_visits / edge.visits);
+                    double score = 1e17;
+                    if (edge.visits > 0) {
+                        double mean = edge.total / edge.visits;
+                        if (config_.optimism > 0) mean += config_.optimism * (edge.best - mean);
+                        if (config_.rave_k > 0 && node != 0) {
+                            const Amaf& record = shared(offset, edge.action);
+                            if (record.visits > 0) {
+                                double beta = std::sqrt(config_.rave_k / (3 * edge.visits + config_.rave_k));
+                                mean = (1 - beta) * mean + beta * record.total / record.visits;
+                            }
+                        }
+                        score = (mean - lowest_reward) / reward_range;
+                        if (use_prior) score += config_.puct * edge.prior * root_factor / (1 + edge.visits);
+                        else score += config_.exploration * std::sqrt(log_visits / edge.visits);
+                    }
                     if (score > best_score) {
                         best_score = score;
                         edge_index = i;
@@ -328,38 +443,76 @@ void Agent::mcts_run(MctsState& state, double deadline_ms) {
 
             path_node[path_length] = node;
             path_edge[path_length] = edge_index;
+            path_offset[path_length] = offset;
             path_length++;
 
             Action action = tree[node].edges[edge_index].action;
-            if (!game.step(turn, action)) game.step(turn, Action{});
-            budget--;
-            turn++;
-
             int child = tree[node].edges[edge_index].child;
             if (child < 0) {
                 child = static_cast<int>(tree.size());
                 tree[node].edges[edge_index].child = child;
                 tree.emplace_back();
+                if (dice > 0) grow_caches();
             }
             node = child;
-        }
 
-        int last = std::min(kMaxTicks, turn - 1 + config_.horizon);
-        for (int future = turn; future <= last; future++) {
-            game.step(future, Action{});
+            int cached = dice > 0 ? state_index[node * dice + guess] : -1;
+            if (cached >= 0) {
+                game = cached_states_[cached].game;
+                turn = cached_states_[cached].turn;
+                depth = cached_states_[cached].depth;
+                continue;
+            }
+
+            game.step(turn, action);
             budget--;
+            turn++;
+            depth++;
+            // With every meteor in the air there is nothing to decide.
+            while (depth < config_.mcts_depth && turn <= kMaxTicks && game.meteor_count() >= kMaxMeteors &&
+                   game.volcano_count() >= kMaxVolcanoes) {
+                game.step(turn++, Action{});
+                budget--;
+                depth++;
+            }
+            if (dice > 0) {
+                state_index[node * dice + guess] = static_cast<int>(cached_states_.size());
+                cached_states_.push_back({game, turn, depth});
+            }
         }
-        last_simulated_ = config_.sim_budget - budget;
 
-        double reward = game.score() - root.score();
-        if (config_.net != nullptr) {
-            constexpr double kWindow = 100;  // The net predicts points over this many ticks.
-            int next_tick = last + 1;
-            uint8_t features[kFeatureBytes];
-            encode_features(game, next_tick, features);
-            double remaining = std::min(1.0, (kMaxTicks + 1 - next_tick) / kWindow);
-            reward += config_.value_weight * 1000 * remaining * config_.net->evaluate(features);
-            budget -= config_.net_cost;
+        double reward = dice > 0 ? leaf_reward[node * dice + guess] : kNoReward;
+        budget--;  // Even a remembered result costs something.
+        if (reward == kNoReward) {
+            budget++;
+            int last = std::min(kMaxTicks, turn - 1 + config_.horizon);
+            for (int future = turn; future <= last; future++) {
+                game.step(future, Action{});
+                budget--;
+            }
+            last_simulated_ = config_.sim_budget - budget;
+
+            reward = game.score() - root.score();
+            if (config_.net != nullptr) {
+                constexpr double kWindow = 100;  // The net predicts points over this many ticks.
+                int next_tick = last + 1;
+                uint8_t features[kFeatureBytes];
+                encode_features(game, next_tick, features);
+                double remaining = std::min(1.0, (kMaxTicks + 1 - next_tick) / kWindow);
+                reward += config_.value_weight * 1000 * remaining * config_.net->evaluate(features);
+                budget -= config_.net_cost;
+            }
+            if (config_.pocket_weight > 0) reward += config_.pocket_weight * pocket_value(game, config_.pocket_limit);
+            if (!flood_bonus_.empty()) {
+                for (int i = 0; i < path_length; i++) {
+                    const Action& taken = tree[path_node[i]].edges[path_edge[i]].action;
+                    if (taken.type != Action::Type::TriggerVolcano) continue;
+                    for (size_t j = 0; j < ranked_volcanoes_.size(); j++) {
+                        if (ranked_volcanoes_[j].x == taken.x && ranked_volcanoes_[j].y == taken.y) reward += flood_bonus_[j];
+                    }
+                }
+            }
+            if (dice > 0) leaf_reward[node * dice + guess] = reward;
         }
         lowest_reward = std::min(lowest_reward, reward);
         highest_reward = std::max(highest_reward, reward);
@@ -370,15 +523,20 @@ void Agent::mcts_run(MctsState& state, double deadline_ms) {
             edge.total += reward;
             edge.best = std::max(edge.best, reward);
             if (i > 0) tree[path_node[i]].visits++;
+            if (config_.rave_k > 0) {
+                Amaf& record = shared(path_offset[i], edge.action);
+                record.visits++;
+                record.total += reward;
+            }
         }
-        if (path_length == 0) state.finished = true;  // Nothing to decide this tick.
+        if (path_length == 0) break;  // Nothing to decide this tick.
     }
-}
 
-Agent::Choice Agent::mcts_best(const MctsState& state) const {
     Choice best{Action{}, -1};
     int most_visits = -1;
-    for (const Edge& edge : state.tree[0].edges) {
+    root_visits_.clear();
+    for (const Edge& edge : tree[0].edges) {
+        root_visits_.push_back({edge.action, edge.visits});
         if (edge.visits > most_visits) {
             most_visits = edge.visits;
             best = {edge.action, edge.visits > 0 ? edge.total / edge.visits : 0};
@@ -387,27 +545,142 @@ Agent::Choice Agent::mcts_best(const MctsState& state) const {
     return best;
 }
 
-bool Agent::begin(const Observation& observation) {
-    last_simulated_ = 0;
-    stop_.store(false, std::memory_order_relaxed);
-    mcts_.reset();
-    Game root = Game::from_observation(observation, static_cast<uint32_t>(observation.tick) * 2654435761u);
-    if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return false;
-    mcts_ = std::make_unique<MctsState>(root, observation.tick, config_.sim_budget);
-    return true;
+double flood_outlook(Game game, int tick, const std::vector<std::pair<int, Action>>& plan, int lookahead, int limit,
+                     double slope) {
+    constexpr int kStride = 5;
+    double sum = 0;
+    int samples = 0;
+    int last = std::min(kMaxTicks, tick + lookahead);
+    for (int future = tick; future <= last; future++) {
+        int elapsed = future - tick;
+        Action action;
+        for (const auto& step : plan) {
+            if (step.first == elapsed) action = step.second;
+        }
+        game.step(future, action);
+        if (elapsed % kStride == 0 && elapsed >= 2 * kStride) {
+            sum += pocket_value(game, limit);
+            if (slope > 0) sum += slope * (kCells - game.spawn_tiles());
+            samples++;
+        }
+    }
+    return samples > 0 ? sum / samples : 0;
 }
 
-Action Agent::resume(double time_ms) {
-    if (!mcts_) return Action{};
-    if (time_ms > 0) mcts_run(*mcts_, now_ms() + time_ms);
-    return mcts_best(*mcts_).action;
+int best_pocket_tile(const Game& game, int& size, int& covered) {
+    uint8_t mask[kCells];
+    size = game.spawn_mask(mask);
+    covered = 0;
+    int best = 0;
+    for (int cell = 0; cell < kCells; cell++) {
+        int count = pocket_cover(mask, cell);
+        if (count > covered) {
+            covered = count;
+            best = cell;
+        }
+    }
+    return best;
+}
+
+double volcano_outlook(Game game, int tick, const Action& first, int lookahead, int limit) {
+    constexpr int kStride = 5;
+    game.step(tick, first);
+    double sum = 0;
+    int samples = 0;
+    int last = std::min(kMaxTicks, tick + lookahead);
+    for (int future = tick + 1; future <= last; future++) {
+        game.step(future, Action{});
+        if ((future - tick) % kStride == 0 && future - tick >= 2 * kStride) {
+            sum += pocket_value(game, limit);
+            samples++;
+        }
+    }
+    return samples > 0 ? sum / samples : 0;
+}
+
+// Returns the lava-only ticks it simulated.
+int Agent::rank_volcanoes(const Game& root, int tick) {
+    constexpr int kStride = 5;
+    ranked_volcanoes_.clear();
+    flood_bonus_.clear();
+    Game bare = root;
+    bare.clear_dinosaurs();
+    int simulated = 0;
+    int ticks = std::max(config_.volcano_rank_ticks, config_.flood_weight > 0 ? config_.volcano_lookahead : 0);
+
+    struct Flood {
+        double pockets = 0;  // Pocket value summed over the samples.
+        int spawn = kCells;  // Spawn tiles left after volcano_rank_ticks.
+    };
+    auto flood = [&](Game game, const Action& first) {
+        Flood result;
+        game.step(tick, first);
+        int last = std::min(kMaxTicks, tick + ticks);
+        for (int future = tick + 1; future <= last; future++) {
+            game.step(future, Action{});
+            int elapsed = future - tick;
+            if (config_.flood_weight > 0 && elapsed % kStride == 0 && elapsed >= 2 * kStride) {
+                result.pockets += pocket_value(game, config_.pocket_limit);
+            }
+            if (elapsed == config_.volcano_rank_ticks) result.spawn = game.spawn_tiles();
+        }
+        simulated += last - tick + 1;
+        return result;
+    };
+
+    double without = config_.flood_weight > 0 ? flood(bare, Action{}).pockets : 0;
+    std::vector<std::pair<Flood, Action>> ranked;
+    for (int cell = 0; cell < kCells; cell++) {
+        if (!(bare.flags(cell) & kMountain)) continue;
+        Action candidate;
+        candidate.type = Action::Type::TriggerVolcano;
+        candidate.x = cell % kWidth;
+        candidate.y = cell / kWidth + bare.origin_y();
+        ranked.push_back({flood(bare, candidate), candidate});
+    }
+    std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) {
+        if (a.first.pockets != b.first.pockets) return a.first.pockets > b.first.pockets;
+        return a.first.spawn < b.first.spawn;
+    });
+    for (int i = 0; i < std::min<int>(config_.volcanoes, static_cast<int>(ranked.size())); i++) {
+        ranked_volcanoes_.push_back(ranked[i].second);
+        flood_bonus_.push_back(config_.flood_weight * std::max(0.0, ranked[i].first.pockets - without));
+    }
+    return simulated;
+}
+
+bool Agent::pick_volcano(const Game& root, int tick, Action& action) {
+    auto outlook = [&](const Game& game, const Action& first) {
+        last_simulated_ += config_.volcano_lookahead;
+        return volcano_outlook(game, tick, first, config_.volcano_lookahead, config_.pocket_limit);
+    };
+
+    Game bare = root;
+    bare.clear_dinosaurs();
+    double without = outlook(bare, Action{});
+    double best = 0;
+    for (int cell = 0; cell < kCells; cell++) {
+        if (!(bare.flags(cell) & kMountain)) continue;
+        Action candidate;
+        candidate.type = Action::Type::TriggerVolcano;
+        candidate.x = cell % kWidth;
+        candidate.y = cell / kWidth + bare.origin_y();
+        double value = outlook(bare, candidate);
+        if (value > best) {
+            best = value;
+            action = candidate;
+        }
+    }
+    return best >= config_.volcano_threshold && best > without;
 }
 
 Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
-    stop_.store(false, std::memory_order_relaxed);
+    root_visits_.clear();
     uint32_t rng_seed = static_cast<uint32_t>(observation.tick) * 2654435761u;
     Game root = Game::from_observation(observation, rng_seed);
+    for (int i = 0; i < observation.dino_count; i++) highest_id_ = std::max(highest_id_, observation.dino_id[i]);
+    if (config_.plan_waves) root.enable_waves(observation.tick, highest_id_);
     if (truth != nullptr) {
         root = *truth;
         root.hide(!config_.reveal_rows, !config_.reveal_rng, !config_.reveal_waves, rng_seed);
@@ -415,8 +688,20 @@ Action Agent::act(const Observation& observation, const Game* truth) {
     }
     if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return Action{};
 
+    if (config_.volcano_plan && root.volcano_count() == 0) {
+        Action volcano;
+        if (pick_volcano(root, observation.tick, volcano)) return volcano;
+    }
+
     double deadline = config_.time_budget_ms > 0 ? now_ms() + config_.time_budget_ms : 0;
-    if (config_.mcts) return search_mcts(root, observation.tick, config_.sim_budget, deadline).action;
+    ranked_volcanoes_.clear();
+    flood_bonus_.clear();
+    int budget = config_.sim_budget;
+    if (config_.volcano_rank && root.volcano_count() == 0) {
+        constexpr int kLavaTicksPerTick = 3;  // Without dinosaurs a tick is much cheaper.
+        budget -= rank_volcanoes(root, observation.tick) / kLavaTicksPerTick;
+    }
+    if (config_.mcts) return search_mcts(root, observation.tick, budget, deadline).action;
     if (config_.samples <= 1) return search(root, observation.tick, config_.sim_budget, deadline).action;
 
     // Each sample guesses the hidden tie-breaks differently, and the best-backed move wins.

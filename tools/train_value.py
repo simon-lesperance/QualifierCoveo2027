@@ -3,7 +3,7 @@
 It predicts the points scored over the next --window ticks, in thousands. Games are
 split by seed, so validation positions come from games the net never saw.
 
-    python tools/train_value.py runs/data/gen0 --out runs/nets/gen0
+    python tools/train_value.py runs/data/gen1 runs/data/gen2 --out runs/nets/gen2
 """
 
 import argparse
@@ -20,6 +20,8 @@ CELLS = 400
 FEATURE_BYTES = CHANNELS * CELLS + GLOBALS
 TICKS = 1001
 RECORD = np.dtype([("tick", "<i4"), ("features", "u1", FEATURE_BYTES)])
+LABELLED = np.dtype([("tick", "<i4"), ("points", "<i4"), ("features", "u1", FEATURE_BYTES)])
+ANCESTRY = np.dtype([("tick", "<i4"), ("points", "<i4"), ("kind", "<i4"), ("features", "u1", FEATURE_BYTES)])
 
 
 class ValueNet(nn.Module):
@@ -40,10 +42,18 @@ class ValueNet(nn.Module):
         return self.fc2(self.relu(self.fc1(x))).squeeze(1)
 
 
-def load_games(folder: Path, window: int, group_size: int, group_bonus: float):
+def load_games(folders: list[Path], window: int, group_size: int, group_bonus: float):
     features, targets, seeds, ticks = [], [], [], []
-    for index, path in enumerate(sorted(folder.glob("*.bin"))):
+    paths = [path for folder in folders for suffix in ("*.bin", "*.lab", "*.anc") for path in sorted(folder.glob(suffix))]
+    for index, path in enumerate(paths):
         raw = path.read_bytes()
+        if path.suffix in (".lab", ".anc"):  # From sim_search, which sets each target itself.
+            records = np.frombuffer(raw, LABELLED if path.suffix == ".lab" else ANCESTRY)
+            features.append(records["features"])
+            targets.append(records["points"] / 1000.0)
+            seeds.append(np.full(len(records), index))
+            ticks.append(records["tick"])
+            continue
         score = np.frombuffer(raw, "<i4", TICKS)
         kills = np.frombuffer(raw, "<i4", TICKS, TICKS * 4)
         count = int(np.frombuffer(raw, "<i4", 1, TICKS * 8)[0])
@@ -88,7 +98,7 @@ def export(model: ValueNet, path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("data", type=Path)
+    parser.add_argument("data", type=Path, nargs="+")
     parser.add_argument("--out", type=Path, default=Path("runs/nets/latest"))
     parser.add_argument("--window", type=int, default=100)
     parser.add_argument("--epochs", type=int, default=30)
@@ -99,10 +109,14 @@ def main() -> None:
     parser.add_argument("--hidden", type=int, default=32)
     parser.add_argument("--group-size", type=int, default=4, help="kills in a tick that earn the bonus")
     parser.add_argument("--group-bonus", type=float, default=0.0, help="extra points per kill in such a tick")
+    parser.add_argument("--center", action="store_true", help="predict only the difference from others at the same tick of the game")
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     features, targets, seeds, ticks = load_games(args.data, args.window, args.group_size, args.group_bonus)
+    if args.center:  # A beam only compares states at one tick, so this is all it needs.
+        _, groups = np.unique(seeds.astype(np.int64) * 2000 + ticks, return_inverse=True)
+        targets = (targets - (np.bincount(groups, targets) / np.bincount(groups))[groups]).astype(np.float32)
     is_validation = seeds % 10 == 0
     train_x, train_y = features[~is_validation], targets[~is_validation]
     valid_x, valid_y = features[is_validation], targets[is_validation]

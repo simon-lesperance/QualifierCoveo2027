@@ -86,6 +86,17 @@ public:
     // experiments that measure what each hidden thing is worth.
     void hide(bool rows, bool rng, bool waves, uint32_t rng_seed);
 
+    // Lets a planning game spawn waves at guessed tiles. `highest_id` is the largest
+    // dinosaur id seen so far, which gives the wave's place in the cycle.
+    void enable_waves(int tick, int highest_id);
+
+    // Leaves only the terrain, lava, meteors and volcano, to look far ahead cheaply.
+    void clear_dinosaurs() {
+        dino_count_ = 0;
+        waves_enabled_ = false;
+    }
+    void clear_volcanoes() { volcano_count_ = 0; }
+
     // What the server would send at the start of `tick`.
     Observation observe(int tick) const;
 
@@ -103,6 +114,16 @@ public:
         return spawn_bag(bag);
     }
 
+    // Marks those tiles with 255 in a kCells-sized mask, and returns how many there are.
+    int spawn_mask(uint8_t* mask) const {
+        int16_t bag[kCells];
+        int size = spawn_bag(bag);
+        for (int cell = 0; cell < kCells; cell++) mask[cell] = 0;
+        for (int i = 0; i < size; i++) mask[bag[i]] = 255;
+        return size;
+    }
+
+    int last_wave_turn() const { return last_wave_turn_; }
     int score() const { return score_; }
     int origin_y() const { return origin_y_; }
     int total_kills() const { return total_kills_; }
