@@ -20,7 +20,7 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 
 - `bots/search_bot` is v11: open-loop MCTS plus the gen2 value net, written in C++ and called from Python. The live build, v12, adds a library built for x86-64-v3, shortens the search when a tick arrives late, and can load a policy net as a root prior.
 - `main` holds v9 and `develop` holds v11 plus research tools. Experimental search options are off by default, so the live bot's behaviour hasn't changed since v11.
-- `rich/dev` isn't merged into `develop`. It adds Linux support, PGO builds, a server freeze analysis and MCTS research. A test merge conflicts only in `docs/status.md`. Its `AGENTS.md` no longer has the planted text.
+- `rich/dev` isn't merged into `develop`, though the late-tick fix, the x86-64-v3 flag and two simulator speedups were copied from it. It adds Linux support, PGO builds, a server freeze analysis and MCTS research. A test merge conflicts only in `docs/status.md`. Its `AGENTS.md` no longer has the planted text.
 
 ## Server games on 2026-11-06
 
