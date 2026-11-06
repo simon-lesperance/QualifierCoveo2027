@@ -24,6 +24,27 @@ class NativeLibrariesTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_search_bot_late_tick_shortens_the_decision_deadline(self):
+        code = (
+            "import time, types, bot; "
+            "agent = bot.Bot(); "
+            "agent.fill = lambda message: None; "
+            "o = agent.observation; o.tick = 10; o.dino_count = 3; "
+            "exec('for i in range(3): o.dino_id[i] = i + 1; o.dino_x[i] = 4 + 5 * i; o.dino_y[i] = 8'); "
+            "message = types.SimpleNamespace(tick=1, score=0); "
+            "agent.replied_at = time.perf_counter() - (bot.ARRIVAL_GRACE_MS + 60) / 1000; "
+            "start = time.perf_counter(); "
+            "agent.get_next_move(message); "
+            "elapsed = (time.perf_counter() - start) * 1000; "
+            "assert agent.lagged == 1 and agent.max_lag_ms >= 60, agent.max_lag_ms; "
+            "assert elapsed < bot.TIME_BUDGET_MS - 50, elapsed"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], cwd=ROOT / "bots" / "search_bot",
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_native_probe_exports_bfs(self):
         library = ctypes.CDLL(str(ROOT / "experiments" / "probe_bot" / library_name("probe")))
         library.bfs_many.restype = ctypes.c_int64
