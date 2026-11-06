@@ -104,7 +104,10 @@ public:
         config_.net = net;
         config_.value_weight = weight;
     }
-    void set_policy(PolicyNet* policy) { config_.policy = policy; }
+    void set_policy(PolicyNet* policy, double puct = 1) {
+        config_.policy = policy;
+        config_.puct = puct;
+    }
     void set_volcano_rank(bool on) { config_.volcano_rank = on; }
     void set_flood_weight(double weight) { config_.flood_weight = weight; }
     void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {

@@ -40,6 +40,17 @@ SIM_EXPORT int sim_agent_load_net(void* agent, const char* path, double weight) 
     return 1;
 }
 
+// Returns 0 if the file can't be read. Like the value net, it's never freed.
+SIM_EXPORT int sim_agent_load_policy(void* agent, const char* path, double puct) {
+    auto* net = new sim::PolicyNet();
+    if (!net->load(path)) {
+        delete net;
+        return 0;
+    }
+    static_cast<sim::Agent*>(agent)->set_policy(net, puct);
+    return 1;
+}
+
 SIM_EXPORT void sim_agent_set_waves(void* agent, int pocket_limit, int pocket_targets, double pocket_weight) {
     static_cast<sim::Agent*>(agent)->set_waves(pocket_limit, pocket_targets, pocket_weight);
 }
