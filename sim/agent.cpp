@@ -228,15 +228,45 @@ struct TreeNode {
 
 }  // namespace
 
-Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double deadline_ms) {
-    std::vector<TreeNode> tree(1);
-    tree.reserve(4096);
+struct MctsState {
+    MctsState(const Game& root_game, int root_tick, int sim_budget)
+        : root(root_game), tick(root_tick), budget(sim_budget), tree(1) {
+        tree.reserve(4096);
+    }
+
+    Game root;
+    int tick;
+    int budget;
+    std::vector<TreeNode> tree;
     std::vector<Action> actions;
     double lowest_reward = std::numeric_limits<double>::infinity();
     double highest_reward = -std::numeric_limits<double>::infinity();
     uint32_t iteration = 0;
+    bool finished = false;  // Nothing left to decide, so further runs are no-ops.
+};
 
-    while (budget > 0 && (deadline_ms <= 0 || now_ms() < deadline_ms)) {
+Agent::Agent(AgentConfig config) : config_(config) {}
+
+Agent::~Agent() = default;
+
+Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double deadline_ms) {
+    MctsState state(root, tick, budget);
+    mcts_run(state, deadline_ms);
+    return mcts_best(state);
+}
+
+void Agent::mcts_run(MctsState& state, double deadline_ms) {
+    const Game& root = state.root;
+    const int tick = state.tick;
+    int& budget = state.budget;
+    std::vector<TreeNode>& tree = state.tree;
+    std::vector<Action>& actions = state.actions;
+    double& lowest_reward = state.lowest_reward;
+    double& highest_reward = state.highest_reward;
+    uint32_t& iteration = state.iteration;
+
+    while (!state.finished && budget > 0 && (deadline_ms <= 0 || now_ms() < deadline_ms) &&
+           !stop_.load(std::memory_order_relaxed)) {
         Game game = root;
         game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + iteration * 40503u);
         iteration++;
@@ -341,12 +371,14 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             edge.best = std::max(edge.best, reward);
             if (i > 0) tree[path_node[i]].visits++;
         }
-        if (path_length == 0) break;  // Nothing to decide this tick.
+        if (path_length == 0) state.finished = true;  // Nothing to decide this tick.
     }
+}
 
+Agent::Choice Agent::mcts_best(const MctsState& state) const {
     Choice best{Action{}, -1};
     int most_visits = -1;
-    for (const Edge& edge : tree[0].edges) {
+    for (const Edge& edge : state.tree[0].edges) {
         if (edge.visits > most_visits) {
             most_visits = edge.visits;
             best = {edge.action, edge.visits > 0 ? edge.total / edge.visits : 0};
@@ -355,8 +387,25 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
     return best;
 }
 
+bool Agent::begin(const Observation& observation) {
+    last_simulated_ = 0;
+    stop_.store(false, std::memory_order_relaxed);
+    mcts_.reset();
+    Game root = Game::from_observation(observation, static_cast<uint32_t>(observation.tick) * 2654435761u);
+    if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return false;
+    mcts_ = std::make_unique<MctsState>(root, observation.tick, config_.sim_budget);
+    return true;
+}
+
+Action Agent::resume(double time_ms) {
+    if (!mcts_) return Action{};
+    if (time_ms > 0) mcts_run(*mcts_, now_ms() + time_ms);
+    return mcts_best(*mcts_).action;
+}
+
 Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
+    stop_.store(false, std::memory_order_relaxed);
     uint32_t rng_seed = static_cast<uint32_t>(observation.tick) * 2654435761u;
     Game root = Game::from_observation(observation, rng_seed);
     if (truth != nullptr) {

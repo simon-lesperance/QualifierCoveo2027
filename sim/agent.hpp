@@ -1,6 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
+#include <memory>
 
 #include "game.hpp"
 #include "value_net.hpp"
@@ -43,12 +45,22 @@ struct AgentConfig {
     bool grid = false;           // Also consider empty ground, to meet a wave before it spawns.
 };
 
+struct MctsState;
+
 // Plans from what the server sends: no seed, no future rows, no knowledge of spawns.
 class Agent {
 public:
-    explicit Agent(AgentConfig config) : config_(config) {}
+    explicit Agent(AgentConfig config);
+    ~Agent();
 
     Action act(const Observation& observation, const Game* truth = nullptr);
+
+    // Anytime MCTS: begin() starts a tree for this observation and returns false when there
+    // is nothing to decide. Each resume() grows the same tree until the deadline (or stop())
+    // and returns the current best root action. Tree state is not thread-safe; stop() is.
+    bool begin(const Observation& observation);
+    Action resume(double time_ms);
+    void stop() { stop_.store(true, std::memory_order_relaxed); }
 
     void set_time_budget(double ms) { config_.time_budget_ms = ms; }
     void set_optimism(double weight) { config_.optimism = weight; }
@@ -66,9 +78,13 @@ private:
 
     Choice search(const Game& root, int tick, int budget, double deadline_ms);
     Choice search_mcts(const Game& root, int tick, int budget, double deadline_ms);
+    void mcts_run(MctsState& state, double deadline_ms);
+    Choice mcts_best(const MctsState& state) const;
 
     AgentConfig config_;
     int last_simulated_ = 0;
+    std::unique_ptr<MctsState> mcts_;
+    std::atomic<bool> stop_{false};
 };
 
 }  // namespace sim

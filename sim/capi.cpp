@@ -51,3 +51,21 @@ SIM_EXPORT void sim_agent_act(void* agent, const sim::Observation* observation, 
 SIM_EXPORT int sim_agent_last_simulated(void* agent) {
     return static_cast<sim::Agent*>(agent)->last_simulated();
 }
+
+// Starts an anytime search for this observation. Returns 0 when there is nothing to decide.
+SIM_EXPORT int sim_agent_begin(void* agent, const sim::Observation* observation) {
+    return static_cast<sim::Agent*>(agent)->begin(*observation) ? 1 : 0;
+}
+
+// Grows the current search for up to time_ms, then writes its best action (same encoding as act).
+SIM_EXPORT void sim_agent_resume(void* agent, double time_ms, int* type, int* x, int* y) {
+    sim::Action action = static_cast<sim::Agent*>(agent)->resume(time_ms);
+    *type = static_cast<int>(action.type);
+    *x = action.x;
+    *y = action.y;
+}
+
+// Asks a running resume() on another thread to return early. Safe to call from any thread.
+SIM_EXPORT void sim_agent_stop(void* agent) {
+    static_cast<sim::Agent*>(agent)->stop();
+}

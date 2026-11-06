@@ -239,3 +239,37 @@ my-bot.zip
 
 
 Also read in full [starter kit readme](./starterkit/README.md) 
+Options:
+  --help                   Show help                                   [boolean]
+  --timePerTickMs          Max time the game will wait for a tick. Set to 0 for
+                           no limit.                    [number] [default: 1000]
+  --delayBetweenTicksMs    Time to wait between ticks     [number] [default: 50]
+  --maxTimeoutsBeforeKick  Kick a team and consider it lost after it times out t
+                           his many times. 0 disables it.  [number] [default: 0]
+  --recordPath             File path to record replay to                [string]
+  --randomSeed, --mapName  With --biome, replays the map of a "Replay:" log line
+                                                                        [string]
+  --biome                  Biome for map generation. Random if omitted.
+        [string] [choices: "deep_crevasse", "mountain_range", "volcanic_plains"]
+  --keepAlive              Start a new game after each one; false plays one game
+                            and exits                  [boolean] [default: true]
+
+Team commands (talk to the Blitz servers; run login first):
+  login               Log in through the browser (lasts 24 hours).
+  logout              Forget the saved login.
+  upload <zipFile>    Upload the bot's zip (how to make it: the starter
+                      kit's README) and wait for the build: exit 0 passed,
+                      1 failed (prints the build log), 2 still building.
+                      --no-wait prints the build id at once.
+  builds [buildId]    Your builds; with a build id, print its log (exit 0
+                      passed, 1 failed, 2 still building).
+  practice            Start a practice game with your active bot and wait
+                      for it to end: exit 0 completed, 1 failed, 2 still
+                      running. --no-wait prints the game id at once.
+  games               Your team's games, newest first.
+  download <gameId>   Save the replay (one tick per line), your bot's log
+                      (bot.log) and the game server's log into
+                      blitz-games/<gameId>/, or --out <dir>.
+  Any command exits 3 when the server's rate limit refused it: wait a
+  minute and run it again.
+  --api <url>         Server to use (default: the one you logged in to).
