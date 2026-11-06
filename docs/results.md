@@ -19,7 +19,9 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 | v8 | gen1 value net | 61,939 |
 | **v9** | Search simulates waves at guessed tiles | **85,231** |
 | v10 | Volcanoes ranked by flooding | 42,241 |
-| v11 (live) | Only the three best-flooding volcanoes, gen2 net | 67,855 |
+| v11 | Only the three best-flooding volcanoes, gen2 net | 67,855 |
+| v12 (live) | x86-64-v3 library, late-tick fix | 67,461 |
+| v12 + PPO prior | PPO net as a root prior, 10 games only | 77,532 |
 
 Server scores are noisy, and 85,231 was a lucky game. On paired simulated games v11 is the strongest version.
 
@@ -72,6 +74,7 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Rewarding a cleared map, or fewer living dinosaurs | No change |
 | Wave-clear bonus (`rich/dev`) | 48,194 against 48,596 on fresh seeds |
 | Better target generation (`rich/dev`) | Fixed-work gain didn't survive the real deadline |
+| 120 ms search on the server | 21-25 late ticks per game, and 3 games averaged 43,340 |
 
 ### Pockets and volcanoes
 
@@ -94,7 +97,7 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Capping children per parent | 156,257-165,381 against 164,770, within noise |
 | Imitating MCTS visit counts | 8,777, far weaker than PPO |
 | PPO net as an MCTS prior, at about 31,000 strength | No gain |
-| PPO net as an MCTS prior, at about 44,000 strength | +1,155 ±473 on 360 paired games, no gain at 80k+. Not adopted yet |
+| PPO net as an MCTS prior, at about 44,000 strength | +1,155 ±473 on 360 paired games, no gain at 80k+. On the server, +4,484 ±1,899 over 10 games. Needs a bigger test |
 
 Why the fg1 value net lost: within one position and tick, both nets correlate only about 0.04 with outcomes. A value net is mainly learning which ticks are rich, which doesn't help choose between moves.
 

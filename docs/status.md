@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06, 07:45. This page goes stale fast, so check the date.
+Last updated: 2026-11-06, 09:50. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -8,6 +8,8 @@ Last updated: 2026-11-06, 07:45. This page goes stale fast, so check the date.
 |---|---|---|
 | Best server game | **85,231** | v9. The leaderboard keeps the best single game |
 | Live bot (v11), server | 51,945, 50,895, 67,855, 60,551 | Four games |
+| Live bot (v12), server | 48,486 mean | 47 games, best 67,461 |
+| v12 with PPO prior, server | 54,518 mean | 10 games, best 77,532 |
 | Live bot (v11), simulated | 54,667 mean | 240 games on two biomes, best 89,737 |
 | Foresight search, full seed knowledge | 229,399 | About 600 times the server budget. Not reachable live |
 | Leaderboard, 2026-11-03 | 204,657, 165,224, 81,238 | Ranks 1 to 3 |
@@ -16,13 +18,25 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 
 ## Code
 
-- `bots/search_bot` is v11: open-loop MCTS plus the gen2 value net, written in C++ and called from Python. `feature/v12-120ms` searches for 120 ms instead of 95 ms, and shortens the search when a tick arrives late. The C++ library is unchanged.
+- `bots/search_bot` is v11: open-loop MCTS plus the gen2 value net, written in C++ and called from Python. The live build, v12, adds a library built for x86-64-v3, shortens the search when a tick arrives late, and can load a policy net as a root prior.
 - `main` holds v9 and `develop` holds v11 plus research tools. Experimental search options are off by default, so the live bot's behaviour hasn't changed since v11.
 - `rich/dev` isn't merged into `develop`. It adds Linux support, PGO builds, a server freeze analysis and MCTS research. A test merge conflicts only in `docs/status.md`. Its `AGENTS.md` no longer has the planted text.
 
-## Today: repeat games for the leaderboard
+## Server games on 2026-11-06
 
-The plan for 2026-11-06 is 60 server games with the 120 ms bot, because the leaderboard keeps the best game. In 480 simulated v11 games, all 6 at 85,231 or more came on `volcanic_plains`, none on `deep_crevasse`. `mountain_range` wasn't in those tests. If it adds nothing, that's about 0.8% per server game, and about 35-38% over 60 games.
+60 games, none beating 85,231:
+
+| Build | Games | Mean | Best | Late ticks per game | Median simulated ticks per move |
+|---|---|---|---|---|---|
+| 120 ms | 3 | 43,340 | 46,301 | 23.3 | 7,245 |
+| 95 ms, v3 library, late-tick fix (v32, v34) | 47 | 48,486 | 67,461 | 0.04 | 6,297 |
+| The same with the PPO prior (v33) | 10 | 54,518 | 77,532 | 1.4 | 6,525 |
+
+- **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
+- **The PPO prior deserves a bigger test.** With biomes weighted equally it's +4,484 ±1,899 over the plain bot, far above its +1,155 ±473 in simulation. It has only 10 games, played as one block, and only 3 of them outside `volcanic_plains`, so this isn't proof.
+- **The server scores below simulation.** The plain bot averaged 49,735 on `volcanic_plains` (55,642 simulated) and 51,600 on `deep_crevasse` (54,605), and 43,066 on `mountain_range`. It ran about 6,300 simulated ticks per move, against 7,000 in the tests. So the simulated odds of 85,000+ were too high.
+
+The active server build is v34, without the PPO prior. To build the prior version, copy `policy_net.bin` from a PPO run into `bots/search_bot/`, which is git-ignored, and run `tools/make_zip.py`. Delete the file afterwards.
 
 ## Latest: policy net from foresight play
 
@@ -50,7 +64,7 @@ As a root prior for v11's MCTS, at budget 7,000 with 1,500 charged for the net:
 
 That's a small gain in the mean, and all of it comes from `deep_crevasse`: +2,199 ±457 there and +111 ±822 on `volcanic_plains`. That split was only checked after the fact. High scores didn't improve, and v11 alone reached 101,218 in these tests, so a single 117,205 doesn't show much. The leaderboard rewards top scores, so this isn't enough to replace v11.
 
-The net is in `runs/ppo/oracle1c/`, which isn't in git. `bot.py` doesn't load a policy net yet.
+The net is in `runs/ppo/oracle1c/`, which isn't in git. `bot.py` loads it if `policy_net.bin` is in the bot folder.
 
 ## Open ideas
 
