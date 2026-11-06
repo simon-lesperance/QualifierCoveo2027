@@ -17,7 +17,7 @@ The simulator came first, and everything else shares it. It matches the real eng
 ## Live bot
 
 1. The server sends the game state each tick. `bots/search_bot/bot.py` copies it into a C struct.
-2. `sim/capi.cpp` passes it to `sim/agent.cpp`, which searches for up to 95 ms of the 150 ms limit.
+2. `sim/capi.cpp` passes it to `sim/agent.cpp`, which searches for up to 95 ms of the 150 ms limit (120 ms on `feature/v12-120ms`).
 3. The bot sends back the chosen meteor or volcano.
 
 `application.py` and `game_message.py` are Coveo's and must not change.

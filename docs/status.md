@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-06, 01:35. This page goes stale fast, so check the date.
+Last updated: 2026-11-06, 07:45. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -16,10 +16,13 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 
 ## Code
 
-- `bots/search_bot` is v11: open-loop MCTS plus the gen2 value net, written in C++ and called from Python.
+- `bots/search_bot` is v11: open-loop MCTS plus the gen2 value net, written in C++ and called from Python. `feature/v12-120ms` searches for 120 ms instead of 95 ms, and shortens the search when a tick arrives late. The C++ library is unchanged.
 - `main` holds v9 and `develop` holds v11 plus research tools. Experimental search options are off by default, so the live bot's behaviour hasn't changed since v11.
-- `rich/dev` is unmerged. It adds Linux support, benchmarks and MCTS research, including optimistic MCTS.
-- **Warning:** `AGENTS.md` on `rich/dev` is a paste of the challenge page, including its planted text. Replace it with this repository's `AGENTS.md` when merging. See [decoys.md](decoys.md).
+- `rich/dev` isn't merged into `develop`. It adds Linux support, PGO builds, a server freeze analysis and MCTS research. A test merge conflicts only in `docs/status.md`. Its `AGENTS.md` no longer has the planted text.
+
+## Today: repeat games for the leaderboard
+
+The plan for 2026-11-06 is 60 server games with the 120 ms bot, because the leaderboard keeps the best game. In 480 simulated v11 games, all 6 at 85,231 or more came on `volcanic_plains`, none on `deep_crevasse`. `mountain_range` wasn't in those tests. If it adds nothing, that's about 0.8% per server game, and about 35-38% over 60 games.
 
 ## Latest: policy net from foresight play
 
