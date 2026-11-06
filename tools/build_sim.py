@@ -2,6 +2,7 @@
 
     python tools/build_sim.py            # Windows tools in build/
     python tools/build_sim.py --linux    # adds Linux builds, including the bot's library
+    python tools/build_sim.py --vec-only # just what PPO training needs
 """
 
 import argparse
@@ -44,18 +45,23 @@ def compile_library(output: Path, target: str | None = None) -> None:
 
 
 def compile_vec_env() -> None:
-    command = [sys.executable, "-m", "ziglang", "c++", *FLAGS, "-shared", "-o", str(BUILD / "libvec.dll")]
+    library = "libvec.dll" if sys.platform == "win32" else "libvec.so"
+    command = [sys.executable, "-m", "ziglang", "c++", *FLAGS, "-shared", "-fPIC", "-o", str(BUILD / library)]
     command += [str(SIM / source) for source in [*ENGINE_SOURCES, "vec_env.cpp"]]
     subprocess.run(command, check=True)
-    print("built libvec.dll")
+    print(f"built {library}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--linux", action="store_true")
+    parser.add_argument("--vec-only", action="store_true", help="Only the library PPO trains on. Works on Windows or Linux")
     args = parser.parse_args()
 
     BUILD.mkdir(exist_ok=True)
+    if args.vec_only:
+        compile_vec_env()
+        return
     for name, source in PROGRAMS.items():
         if (SIM / source).exists():
             compile_program(name, source)

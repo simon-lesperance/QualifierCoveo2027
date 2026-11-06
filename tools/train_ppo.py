@@ -11,6 +11,7 @@ import argparse
 import ctypes
 import json
 import math
+import sys
 import time
 from pathlib import Path
 
@@ -34,7 +35,7 @@ PLANES = CHANNELS + 1 + 2 + GLOBALS + 4 + 4
 
 class VecEnv:
     def __init__(self, envs: int, threads: int, biomes: int, prefix: str, desync: bool):
-        self.lib = ctypes.CDLL(str(ROOT / "build" / "libvec.dll"))
+        self.lib = ctypes.CDLL(str(ROOT / "build" / ("libvec.dll" if sys.platform == "win32" else "libvec.so")))
         self.lib.vec_create.restype = ctypes.c_void_p
         self.lib.vec_create.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
         self.lib.vec_observe.argtypes = [ctypes.c_void_p] + [ctypes.c_void_p] * 2
