@@ -133,6 +133,9 @@ int main(int argc, char** argv) {
         else if (name == "--frame-every") frame_every = value;
         else if (name == "--frame-first") frame_first = value;
         else if (name == "--frame-last") frame_last = value;
+        else if (name == "--aim-current") config.aim_current = value != 0;
+        else if (name == "--aim-predicted") config.aim_predicted = value != 0;
+        else if (name == "--volcano-near") config.volcano_near_dinos = value != 0;
         else if (name == "--biome") biome_filter = argv[i + 1];
         else if (name == "--net") {
             if (!net.load(argv[i + 1])) {
