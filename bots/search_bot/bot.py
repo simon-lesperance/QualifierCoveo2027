@@ -32,8 +32,12 @@ DECISION_STEP_MS = float(os.environ.get("BOT_STEP_MS", "10"))
 LAST_DECISION_MS = float(os.environ.get("BOT_LAST_MS", "95"))
 # The worker's final search slice ends this early, so its answer is ready at LAST_DECISION_MS.
 FINAL_SLICE_MARGIN_MS = 1.0
-if not 0 < FIRST_DECISION_MS <= LAST_DECISION_MS or DECISION_STEP_MS <= 0:
-    raise ValueError("Need 0 < BOT_FIRST_MS <= BOT_LAST_MS and BOT_STEP_MS > 0")
+# The next tick normally arrives about 3 ms after we reply (p95 5.4 ms on the server). When the
+# host stalls us between ticks, the gap beyond this grace is time the server's clock already spent,
+# so the whole decision schedule shifts earlier by it.
+ARRIVAL_GRACE_MS = float(os.environ.get("BOT_ARRIVAL_GRACE_MS", "6"))
+if not 0 < FIRST_DECISION_MS <= LAST_DECISION_MS or DECISION_STEP_MS <= 0 or ARRIVAL_GRACE_MS < 0:
+    raise ValueError("Need 0 < BOT_FIRST_MS <= BOT_LAST_MS, BOT_STEP_MS > 0 and BOT_ARRIVAL_GRACE_MS >= 0")
 
 
 def decision_checkpoints() -> list[float]:
@@ -125,6 +129,9 @@ class Bot:
         self.spent_ms = []
         self.revised = 0   # Ticks where the final decision differs from the first one.
         self.overran = 0   # Ticks where the worker missed the last checkpoint.
+        self.lagged = 0    # Ticks that arrived late, and the worst lateness.
+        self.max_lag_ms = 0.0
+        self.replied_at = None
         self.worker = None
         self.finished = threading.Event()
         self.lock = threading.Lock()
@@ -198,8 +205,25 @@ class Bot:
             self.worker.join()
             self.worker = None
 
+    def arrival_lag_ms(self, now: float) -> float:
+        """How much later than usual this tick arrived after our previous reply."""
+        if self.replied_at is None:
+            return 0.0
+        return max((now - self.replied_at) * 1000 - ARRIVAL_GRACE_MS, 0.0)
+
     def get_next_move(self, game_message: TeamGameState) -> list[Action]:
-        start = time.perf_counter()
+        actions = self.decide(game_message)
+        self.replied_at = time.perf_counter()
+        return actions
+
+    def decide(self, game_message: TeamGameState) -> list[Action]:
+        arrived = time.perf_counter()
+        lag_ms = self.arrival_lag_ms(arrived)
+        if lag_ms > 0:
+            self.lagged += 1
+            self.max_lag_ms = max(self.max_lag_ms, lag_ms)
+        # Every deadline below is measured from when the server most likely sent the tick.
+        start = arrived - lag_ms / 1000
         self.wait_for_worker()
         self.fill(game_message)
 
@@ -231,11 +255,13 @@ class Bot:
             print(
                 f"BUDGET tick={game_message.tick} score={game_message.score} "
                 f"simulated median={ordered[len(ordered) // 2]} min={ordered[0]} "
-                f"move_ms max={max(self.spent_ms):.1f} revised={self.revised} overran={self.overran}",
+                f"move_ms max={max(self.spent_ms):.1f} revised={self.revised} overran={self.overran} "
+                f"lagged={self.lagged} max_lag_ms={self.max_lag_ms:.1f}",
                 flush=True,
             )
             self.spent, self.spent_ms = [], []
-            self.revised = self.overran = 0
+            self.revised = self.overran = self.lagged = 0
+            self.max_lag_ms = 0.0
 
         kind, x, y = decision
         if kind == 1:
