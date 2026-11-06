@@ -9,7 +9,7 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 3. **Hidden dice cost more than hidden terrain.** Dinosaur tie-breaks come from an RNG the bot can't see. Revealing them to an older bot added about 19,000, while true future rows added little at that stage. Today's bot gains at most +3,167 ±697 from true rows.
 4. **Tuning this search is exhausted at about 55,000.** Depth, widening, horizon, exploration, targets, caching and RAVE have all failed to beat v11 clearly.
 5. **More budget alone won't close the gap.** See [the budget tables](#budget-against-score).
-6. **Imitating foresight plays far better than imitating MCTS,** and PPO improves quickly from that start. This is the current line of work ([status.md](status.md)).
+6. **Imitating foresight plays far better than imitating MCTS,** and PPO improves quickly from that start, but it levels off near 44,000 alone. As an MCTS prior it adds about +1,100 to the mean and nothing to top scores so far ([status.md](status.md)).
 
 ## Bot history
 
@@ -93,7 +93,8 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Beam ancestry labels | One parent's children fill the beam: about 1 ancestor 20 ticks back |
 | Capping children per parent | 156,257-165,381 against 164,770, within noise |
 | Imitating MCTS visit counts | 8,777, far weaker than PPO |
-| PPO or imitation net as an MCTS prior | No gain so far, at about 31,000 strength. Worth retesting once stronger |
+| PPO net as an MCTS prior, at about 31,000 strength | No gain |
+| PPO net as an MCTS prior, at about 44,000 strength | +1,155 ±473 on 360 paired games, no gain at 80k+. Not adopted yet |
 
 Why the fg1 value net lost: within one position and tick, both nets correlate only about 0.04 with outcomes. A value net is mainly learning which ticks are rich, which doesn't help choose between moves.
 

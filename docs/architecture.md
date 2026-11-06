@@ -47,7 +47,7 @@ Capacity on the server is about 5,000-6,800 simulated ticks per move with the ne
 | `sim/agent.*` | Live search, wave planning, flood outlook |
 | `sim/features.*` | Encodes a position for the nets, using only what a live bot sees |
 | `sim/value_net.*` | Hand-written value net inference |
-| `sim/policy_net.*` | Hand-written policy net inference. Out of date, see [status.md](status.md) |
+| `sim/policy_net.*` | Hand-written policy net inference, checked against PyTorch by `sim_policytest` |
 | `sim/capi.cpp` | C interface for the bot |
 | `sim/vec_env.cpp` | Batched games for PPO, built as `build/libvec.dll` |
 
@@ -102,7 +102,7 @@ build/sim_nettest.exe runs/nets/mine
 
 ## Policy net
 
-150,484 parameters, a full-resolution CNN with dilated convolutions. It outputs one logit per tile for meteors and for volcanoes, plus one for doing nothing, with illegal actions masked. Inputs are the value net's plus spawn-area data and clock planes, built by `build_inputs` in `tools/train_ppo.py`. Inference takes about 13 ms, once per tick, so it could fit in a move's budget.
+150,484 parameters, a full-resolution CNN with dilated convolutions. It outputs one logit per tile for meteors and for volcanoes, plus one for doing nothing, with illegal actions masked. Inputs are the value net's plus spawn-area data and clock planes, built by `build_inputs` in `tools/train_ppo.py`. Inference takes about 8-13 ms on our PC, once per tick, so it could fit in a move's budget. `sim_live --policy file --policy-only 1 --plan-waves 1` plays it alone. Leave out `--plan-waves` and the net's wave clock is wrong, which cost about 7,000 points in one test.
 
 ### Foresight imitation, then PPO
 

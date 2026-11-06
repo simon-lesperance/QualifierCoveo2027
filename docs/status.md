@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05, 15:55. This page goes stale fast, so check the date.
+Last updated: 2026-11-06, 01:35. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -21,9 +21,9 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 - `rich/dev` is unmerged. It adds Linux support, benchmarks and MCTS research, including optimistic MCTS.
 - **Warning:** `AGENTS.md` on `rich/dev` is a paste of the challenge page, including its planted text. Replace it with this repository's `AGENTS.md` when merging. See [decoys.md](decoys.md).
 
-## In progress: policy net from foresight play
+## Latest: policy net from foresight play
 
-Search tuning has stalled at about 55,000, and more budget alone won't close the gap (see [results.md](results.md)). The current bet is a policy net that learns long-term habits offline:
+Search tuning stalled at about 55,000, and more budget alone won't close the gap (see [results.md](results.md)). So we trained a policy net to learn long-term habits offline:
 
 1. A foresight search plays games, and a net imitates its moves using only what a live bot sees.
 2. PPO continues from those weights on the real game, with hidden dice.
@@ -31,23 +31,32 @@ Search tuning has stalled at about 55,000, and more budget alone won't close the
 | Stage | Fresh-seed score (greedy, no search) | Best |
 |---|---|---|
 | Imitation of 222 foresight games | 20,825 | 38,678 |
-| PPO from that, iteration 100 | 33,294 | 54,212 |
-| PPO, iteration 300 | 38,057 | 53,036 |
+| PPO from that, iteration 300 | 38,057 | 53,036 |
+| PPO, iteration 1300 | 43,170 | 60,010 |
+| PPO, iteration 2300 (final, six hours) | 44,213 | 64,850 |
 | Old PPO run, final | 31,149 | 45,434 |
 
-This run is still going, and it has already passed the old one. It needs to pass about 55,000 to matter, alone or as a guide for MCTS.
+The net levelled off near 43,000-44,000. In C++ it scores 44,210 over 120 games, so the port is faithful, but on the test biomes it scores about 46,500 against v11's 55,000.
 
-Before a PPO bot can run on the server, `sim/policy_net.hpp` must be updated. It expects 26 input planes and `tools/train_ppo.py` now uses 30.
+As a root prior for v11's MCTS, at budget 7,000 with 1,500 charged for the net:
+
+| Setting | Fresh seeds, 240 paired games | All 360 paired games | 80k+ against v11 | Best |
+|---|---|---|---|---|
+| `--puct 0.3` | +934 ±564 | +1,155 ±473 | 7 against 9 | 117,205 |
+| `--puct 1` | +862 ±561 | +1,108 ±452 | 2 against 9 | 96,978 |
+
+That's a small gain in the mean, and all of it comes from `deep_crevasse`: +2,199 ±457 there and +111 ±822 on `volcanic_plains`. That split was only checked after the fact. High scores didn't improve, and v11 alone reached 101,218 in these tests, so a single 117,205 doesn't show much. The leaderboard rewards top scores, so this isn't enough to replace v11.
+
+The net is in `runs/ppo/oracle1c/`, which isn't in git. `bot.py` doesn't load a policy net yet.
 
 ## Open ideas
 
 Strongest first. Expected value is judgement, not measurement.
 
 1. **Dice-free terrain planner.** Terrain and lava don't depend on hidden dice, so plans that shape them hold up where kill plans don't. Search meteor and volcano sequences in a dinosaur-free model to keep the spawn area small, then let MCTS take the kills. Test first offline with true future rows, because if it fails there it can be dropped cheaply. The main risk is that new rows keep arriving exactly where the pockets are, and flood value failed on guessed rows (-502 ±403). Greedy carving failed too, but it couldn't plan multi-step channels.
-2. **Start PPO games from foresight positions.** PPO rarely sees a 9,020-point tick, because it must first build a pocket by chance. Starting some games part-way through foresight plans would show it what pockets are worth. This needs state resets in `sim/vec_env.cpp`.
+2. **Start PPO games from foresight positions.** PPO has levelled off near 44,000, and it rarely sees a 9,020-point tick, because it must first build a pocket by chance. Starting some games part-way through foresight plans would show it what pockets are worth. This needs state resets in `sim/vec_env.cpp`.
 3. **Play for high scores.** The leaderboard keeps the best game, but MCTS optimises the mean. Optimistic MCTS (`rich/dev`) is a first step: +1,740 ±781 on 30 simulated games, and no gain on 12 launcher games. Both samples are too small to judge its effect on top scores. Try percentile backups, and measure the rate of 80,000+ games.
 4. **Study the widest plans.** What do the best 100-tick windows of the 207,700 and 229,399 plans do that doesn't rely on knowing the dice? `tools/analyze_plan.py` is a start. Regenerate a plan with the command in [results.md](results.md#foresight-search). Also open: why do most pocket streaks earn 10,000-20,000 when the best earned 63,000?
-5. **Update the policy net's C++ inference**, as described above. This is needed for any PPO bot, whatever the idea.
 
 ## Is rank 1 predicting seeds?
 
