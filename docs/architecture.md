@@ -65,6 +65,7 @@ Capacity on the server is about 5,000-6,800 simulated ticks per move with the ne
 | Tool | Purpose |
 |---|---|
 | `tools/build_sim.py` | Builds everything with Zig. `--linux` adds the server `.so` |
+| `tools/build_pgo.py` | Trains and checks a Linux PGO library using local live games |
 | `tools/run_local.py` | Plays games on the real local engine at server timing |
 | `tools/check_sim.py` | Compares the simulator with the engine |
 | `tools/make_zip.py` | Packages a bot for upload |
@@ -77,6 +78,102 @@ Capacity on the server is about 5,000-6,800 simulated ticks per move with the ne
 | `tools/export_policy.py` | Exports a policy checkpoint for C++ inference |
 
 `runs/`, `build/` and `localRunner/` are git-ignored, so data, checkpoints and plans stay on each machine. Training also needs PyTorch with CUDA, which isn't in `requirements-dev.txt`.
+
+### Linux PGO builds
+
+C++ builds use the **x86-64-v3 instruction set**, without CPU-specific tuning.
+Zig spells the architecture `-march=x86_64_v3`. Do not add
+plain `-mtune=cascadelake`: Zig 0.16 interprets that as a CPU selection and enables
+Cascade Lake instructions, including AVX-512. The previous tuning experiment
+forwarded `-Xclang -tune-cpu -Xclang cascadelake` to avoid changing the ISA, but
+that tuning has been removed to isolate PGO's effect. Instrumentation and
+profile use retain the same architecture, optimization level and floating-point
+flags. See [build throughput](results.md#build-throughput) for measurements.
+
+CPU tuning for server games is an opt-in **build-time** choice, not something the
+bot detects at runtime. Add `--server-tune` to the final library build:
+
+```bash
+.venv/bin/python tools/build_sim.py --linux --only libsim --server-tune \
+  --pgo-use build/pgo-untuned/sim.profdata
+```
+
+Only the Linux bot library gets Cascade Lake scheduling. Local simulator
+executables, the vector environment, the probe and Windows libraries remain
+untuned, even in a combined build. The existing profile can be reused: CPU
+scheduling does not change profile function identities or control-flow counts.
+This keeps x86-64-v3 and does not add AVX-512. Server performance remains
+unmeasured, so tuning is not enabled by default.
+
+The command replaces `bots/search_bot/libsim.so`; package that artifact with
+`tools/make_zip.py` for server use. Omit `--server-tune` when rebuilding for local
+games. The same `.so` cannot be both tuned and untuned at runtime.
+
+PGO needs two extra local tools: `llvm-profdata` and the x86-64 compiler-rt
+profile archive, both matching **Zig's embedded Clang major version**, not the
+system compiler. Check with `.venv/bin/python -m ziglang c++ --version`.
+The pinned Zig 0.16 uses Clang 21. For example, on a machine with Nix:
+
+```bash
+nix build --no-link --print-out-paths nixpkgs#llvmPackages_21.compiler-rt nixpkgs#llvmPackages_21.llvm
+```
+
+Use the printed compiler-rt and LLVM store paths below (other LLVM installations
+work too; the archive may be called `libclang_rt.profile.a`):
+
+```bash
+.venv/bin/python tools/build_pgo.py \
+  --profile-runtime /path/to/compiler-rt/lib/linux/libclang_rt.profile-x86_64.a \
+  --llvm-profdata /path/to/llvm/bin/llvm-profdata \
+  --out build/pgo --install
+```
+
+This Linux-only workflow:
+
+1. Builds isolated unprofiled, instrumented and profile-use shared libraries, and
+   links a `sim_live` driver to each actual library.
+2. Trains on three complete local games, one per biome, with the shipped value
+   net, live search settings, budget 7,000 and one thread. A Ryzen is fine:
+   profiles describe execution frequencies, not CPU performance counters.
+3. Merges fresh IR profiles and rebuilds using them. Zig needs
+   `-fprofile-generate` plus explicit profile-runtime linkage; merely accepting
+   `-fprofile-instr-generate` is not proof of working collection.
+   The merge excludes `ValueNet` functions by default: full-profile PGO regressed
+   locally in the earlier tuned experiment. Sampling implicated inference, but
+   the responsible compiler decision has not been isolated.
+4. Plays three held-out games per build, twice in alternating order. Every
+   per-tick trace must match. Saves paired timings, score difference and standard
+   error, flags, tool versions and artifact hashes in `results.json`.
+5. With `--install`, copies only the checked, faster profile-use library to
+   `bots/search_bot/libsim.so`. The final artifact has no profiling runtime.
+
+The training library targets the local glibc because a local compiler-rt archive
+can require newer libc symbols. The baseline and final libraries still target
+`x86_64-linux-gnu.2.31`; the runtime archive never enters the upload. Training
+uses only live observations, never true future rows or dice. There is no launcher
+or server access.
+
+Choose a fresh `--out` directory for each run; old raw profiles are never mixed
+in. `--train-games`, `--test-games` (counts per biome), `--repeats` and disjoint
+`--train-first` / `--test-first` seed ranges can increase the sample. Timings are
+local throughput measurements, not evidence of a server score improvement.
+`--compare-full` also builds a full-library candidate from the same raw profiles,
+then compares baseline, simulator-only PGO and full-library PGO on identical games
+in forward/reverse order. Both candidates must match the baseline's traces.
+The additional result is saved under `full_profile` in `results.json`;
+`--install` still selects only the default simulator-only candidate.
+
+To reuse the merged profile without replaying training games:
+
+```bash
+.venv/bin/python tools/build_sim.py --linux --only libsim \
+  --pgo-use build/pgo/sim.profdata
+```
+
+Retrain after changing the engine/search, compiler, live settings or net.
+Out-of-date profile diagnostics are errors. An ordinary build without
+`--pgo-use` **replaces PGO with an unprofiled library**.
+Package the final bot with `tools/make_zip.py`, as usual.
 
 ## Value net
 

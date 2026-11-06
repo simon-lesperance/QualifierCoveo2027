@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-05, 15:55. This page goes stale fast, so check the date.
+Last updated: 2026-11-05, 22:20. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -19,6 +19,8 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 - `bots/search_bot` is v11: open-loop MCTS plus the gen2 value net, written in C++ and called from Python.
 - `main` holds v9 and `develop` holds v11 plus research tools. Experimental search options are off by default, so the live bot's behaviour hasn't changed since v11.
 - `rich/dev` was merged with `develop` on 2026-11-05. Linux artifact support and native probe tests are retained. Where the search and live-bot implementations conflicted, this branch keeps `develop`'s policy/value-network stack instead of `rich/dev`'s experimental anytime/optimistic MCTS.
+- C++ builds keep x86-64-v3 with no CPU-specific tuning. `tools/build_pgo.py` adds local profile training and a checked profile-use library. In the untuned comparison, simulator/search PGO excluding value-net inference reduced local runtime by **2.31%**, while full-library PGO increased runtime by **7.64%**. The untuned simulator-only PGO library is installed locally; server performance is unmeasured. See [build throughput](results.md#build-throughput).
+- `tools/build_sim.py --linux --only libsim --server-tune --pgo-use <profile>` opts the server library into Cascade Lake scheduling without tuning local simulator tools. `ValueNet` remains excluded from the default merged PGO profile.
 
 ## In progress: policy net from foresight play
 

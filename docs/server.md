@@ -23,6 +23,11 @@ Measured with `experiments/probe_bot` on 2026-11-03 unless noted.
 | Upload | 10 MB zip. `*.py`, `requirements.txt` and runtime files, with no build output, venv or secrets |
 
 Cross-compile with Zig for `x86_64-linux-gnu.2.31`, which `tools/build_sim.py --linux` does.
+The default C++ build keeps the x86-64-v3 ISA without CPU-specific tuning.
+`--server-tune` opts only the `--linux` bot library into Cascade Lake scheduling;
+local simulator tools remain untuned.
+For local profile training and the profile-use server library, see
+[Linux PGO builds](architecture.md#linux-pgo-builds).
 
 ## Timing
 

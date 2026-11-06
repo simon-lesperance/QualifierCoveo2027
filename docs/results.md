@@ -51,6 +51,87 @@ Live MCTS, 120 games paired with the 7,000 baseline (mean 54,667, 240 games):
 
 Each doubling adds about 15,000 with foresight and about 2,700 without. Neither curve has flattened, but long plans only pay off when the dice are known. A faster simulator is therefore worth little by itself. High scores do improve faster than the mean, though, and the leaderboard rewards them.
 
+## Build throughput
+
+### Initial Cascade Lake-tuned experiment
+
+Local Ryzen 5 3600 measurements on 2026-11-05, Zig 0.16 / Clang 21, `-O2`,
+x86-64-v3 with Cascade Lake tuning. Each candidate trained on three complete
+live-information games, one per biome, then played three held-out games twice in
+alternating baseline/candidate order. All used budget 7,000, the shipped value
+net and the live search settings. Percentages below are changes in elapsed
+runtime against an **unprofiled, already tuned v3 baseline**, with standard
+error over the two timing pairs; negative is faster.
+
+| Profile | Training seed | Held-out seed | Runtime change |
+|---|---|---|---|
+| IR, all functions | `live-81000` | `live-91000` | +8.22% +/- 0.39% |
+| Front-end, all functions | `live-82000` | `live-92000` | +8.03% +/- 0.03% |
+| **IR, excluding `ValueNet`** | `live-83000` | `live-93000` | **-1.65% +/- 0.10%** |
+
+Sampling implicated `ValueNet::evaluate` in the full-profile regression: its share
+of cycles rose from about 30% to 38%, while total cycles also increased.
+Excluding `ValueNet` records at merge time preserves the ordinary vector-loop
+code generation and leaves PGO to the branchy search/simulator. This exclusion
+is the default in `tools/build_pgo.py`, which refuses to install a locally slower
+candidate. The specific compiler decision causing the regression has not been
+isolated.
+
+The final paired runs took 85.760 / 84.255 seconds and 85.645 / 84.315 seconds
+(baseline / PGO, three games each). Every per-tick trace matched, not just the
+final scores: paired score difference **0 +/- 0 SE** across the three held-out
+games. This verifies fixed-work equivalence, not a playing-strength gain. The
+small local speedup is below the hoped-for 10-30%; server throughput and scores
+have not been measured.
+
+The tuned library was initially installed at `bots/search_bot/libsim.so`. The profile,
+isolated builds, traces and timing report are in `build/pgo-final/` (ignored).
+Rebuilding with the then-current tuned flags and `--pgo-use
+build/pgo-final/sim.profdata` reproduced the same library hash. The artifact has
+no instrumentation sections or AVX-512 registers and needs at most glibc 2.29
+symbols, within the glibc 2.31 build target. Reproduction instructions and the
+Zig tuning caveat are in [architecture.md](architecture.md#linux-pgo-builds).
+
+### Untuned PGO isolation
+
+Removed Cascade Lake scheduling from all C++ build stages, retaining
+`-march=x86_64_v3`, `-O2` and `-ffp-contract=off`. Retrained IR profiles on
+`live-84000`, one full live-information game per biome. Both selective and
+full-library profiles came from the **same raw training data**, and all three
+builds played `live-94000` across the three biomes at budget 7,000.
+
+The order was baseline / selective / full, then full / selective / baseline.
+The baseline here is unprofiled **and untuned**. Runtime changes are relative to
+that baseline; standard errors describe the two repeated timing comparisons,
+not uncertainty across a broad population of seeds.
+
+| Build | Round 1, seconds | Round 2, seconds | Runtime change |
+|---|---|---|---|
+| Untuned, unprofiled | 83.582 | 83.668 | reference |
+| **Untuned IR PGO, excluding `ValueNet`** | **81.680** | **81.704** | **-2.31% +/- 0.04% SE** |
+| Untuned IR PGO, full library | 89.996 | 90.039 | +7.64% +/- 0.03% SE |
+
+Both PGO variants matched every baseline per-tick trace. Paired score difference
+was **0 +/- 0 SE** across the three held-out games. Removing explicit CPU tuning
+therefore did **not** eliminate the full-library PGO slowdown on this Ryzen.
+It still does not identify which compiler optimization caused it, or establish
+whether the server Xeon behaves the same way. The tuned and untuned experiments
+used different seeds/profiles, so their percentages do not isolate the effect
+of tuning itself.
+
+The installed `bots/search_bot/libsim.so` is now the untuned, selective-PGO
+library. All profiles, traces and results are in `build/pgo-untuned/` (ignored).
+Rebuilding it with:
+
+```bash
+.venv/bin/python tools/build_sim.py --linux --only libsim \
+  --pgo-use build/pgo-untuned/sim.profdata
+```
+
+reproduced the candidate hash. `tools/build_pgo.py --compare-full` reproduces the
+three-way comparison in a fresh output directory with new disjoint seed ranges.
+No server game was run.
+
 ## Tried and rejected
 
 Live tests use 120 paired games at budget 7,000 against v11 unless noted.
