@@ -114,6 +114,32 @@ void flood(const uint8_t* flags, int16_t* dist, int16_t* queue, int tail) {
     }
 }
 
+// Steps from a dangerous cell to the nearest safe, passable cell. Paths may cross
+// lava but not impassable terrain. Searching outward from the queried cell stops at
+// the first safe cell, instead of flooding the whole frame from every safe cell.
+int nearest_safe(const uint8_t* flags, const bool* danger, int cell) {
+    if (flags[cell] & kImpassable) return kUnreachable;
+    uint64_t seen[(kCells + 63) / 64] = {};
+    seen[cell >> 6] |= uint64_t{1} << (cell & 63);
+    int16_t queue[kCells];
+    queue[0] = static_cast<int16_t>(cell);
+    int head = 0;
+    int tail = 1;
+    for (int distance = 1; head < tail; distance++) {
+        for (int layer_end = tail; head < layer_end; head++) {
+            for (int neighbor : kNeighbors[queue[head]]) {
+                if (neighbor < 0 || (flags[neighbor] & kImpassable)) continue;
+                uint64_t bit = uint64_t{1} << (neighbor & 63);
+                if (seen[neighbor >> 6] & bit) continue;
+                if (!danger[neighbor]) return distance;
+                seen[neighbor >> 6] |= bit;
+                queue[tail++] = static_cast<int16_t>(neighbor);
+            }
+        }
+    }
+    return kUnreachable;
+}
+
 }  // namespace
 
 struct Game::TickContext {
@@ -133,8 +159,6 @@ struct Game::TickContext {
 
     int field_count = 0;
     Field fields[kMaxFields];
-    bool safety_ready = false;
-    int16_t safety[kCells];
     bool corpse_field_ready = false;
     bool has_corpses = false;
     int16_t corpse_field[kCells];
@@ -208,27 +232,7 @@ struct Game::TickContext {
     }
 
     int safety_distance(const uint8_t* flags, int cell) {
-        if (!danger[cell]) return 0;
-        if (!safety_ready) {
-            int16_t queue[kCells];
-            int tail = 0;
-            for (int i = 0; i < kCells; i++) {
-                bool source = !danger[i] && !(flags[i] & kImpassable);
-                safety[i] = source ? int16_t{0} : static_cast<int16_t>(kUnreachable);
-                if (source) queue[tail++] = static_cast<int16_t>(i);
-            }
-            // Unlike other distances, the way to safety may cross lava.
-            for (int head = 0; head < tail; head++) {
-                int current = queue[head];
-                for (int neighbor : kNeighbors[current]) {
-                    if (neighbor < 0 || safety[neighbor] != kUnreachable || (flags[neighbor] & kImpassable)) continue;
-                    safety[neighbor] = static_cast<int16_t>(safety[current] + 1);
-                    queue[tail++] = static_cast<int16_t>(neighbor);
-                }
-            }
-            safety_ready = true;
-        }
-        return safety[cell];
+        return danger[cell] ? nearest_safe(flags, danger, cell) : 0;
     }
 
     // Squared, because only the order matters. The engine compares Math.hypot values,
