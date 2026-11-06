@@ -21,7 +21,11 @@ IMPASSABLE, MOUNTAIN, LAVA = 1, 2, 4
 SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus": 3}
 
 # The limit is 150 ms, but even a trivial bot sees spikes of up to 65 ms.
-TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
+TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "120"))
+# The next tick normally arrives about 3 ms after we reply (p95 5.4 ms on the server). When the
+# host stalls us between ticks, the gap beyond this grace is time the server's clock already spent,
+# so the budget shrinks by it.
+ARRIVAL_GRACE_MS = float(os.environ.get("BOT_ARRIVAL_GRACE_MS", "6"))
 RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 3, 5
 WIDENING, EXPLORATION = 3.0, 0.5
 VALUE_WEIGHT = 0.3
@@ -90,6 +94,9 @@ class Bot:
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []
+        self.replied_at = None
+        self.lagged = 0    # Ticks that arrived late, and the worst lateness.
+        self.max_lag_ms = 0.0
 
     def fill(self, game_message: TeamGameState) -> None:
         o = self.observation
@@ -135,8 +142,24 @@ class Bot:
         for corpse in game_message.corpses:
             o.corpses[(corpse.y - origin.y) * WIDTH + corpse.x] = 1
 
+    def arrival_lag_ms(self, now: float) -> float:
+        """How much later than usual this tick arrived after our previous reply."""
+        if self.replied_at is None:
+            return 0.0
+        return max((now - self.replied_at) * 1000 - ARRIVAL_GRACE_MS, 0.0)
+
     def get_next_move(self, game_message: TeamGameState) -> list[Action]:
-        start = time.perf_counter()
+        actions = self.decide(game_message)
+        self.replied_at = time.perf_counter()
+        return actions
+
+    def decide(self, game_message: TeamGameState) -> list[Action]:
+        arrived = time.perf_counter()
+        lag_ms = self.arrival_lag_ms(arrived)
+        if lag_ms > 0:
+            self.lagged += 1
+            self.max_lag_ms = max(self.max_lag_ms, lag_ms)
+        start = arrived - lag_ms / 1000  # Measured from when the server most likely sent the tick.
         self.fill(game_message)
 
         remaining = TIME_BUDGET_MS - (time.perf_counter() - start) * 1000
@@ -155,10 +178,12 @@ class Bot:
             print(
                 f"BUDGET tick={game_message.tick} score={game_message.score} "
                 f"simulated median={ordered[len(ordered) // 2]} min={ordered[0]} "
-                f"move_ms max={max(self.spent_ms):.1f}",
+                f"move_ms max={max(self.spent_ms):.1f} "
+                f"lagged={self.lagged} max_lag_ms={self.max_lag_ms:.1f}",
                 flush=True,
             )
             self.spent, self.spent_ms = [], []
+            self.lagged, self.max_lag_ms = 0, 0.0
 
         if kind.value == 1:
             return [LaunchMeteorAction(target=WorldPosition(x=x.value, y=y.value))]
