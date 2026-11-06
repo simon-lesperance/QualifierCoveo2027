@@ -2,8 +2,10 @@
 
 import ctypes
 import os
+import signal
 import subprocess
 import sys
+import time
 import unittest
 
 from platform_paths import ROOT, library_name
@@ -90,6 +92,36 @@ class NativeLibrariesTest(unittest.TestCase):
             capture_output=True, text=True, timeout=30, env=env,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "uses SIGSTOP")
+    def test_search_bot_phase_budget_records_a_pause_during_search(self):
+        code = (
+            "import sys, types, bot; "
+            "agent = bot.Bot(); agent.fill = lambda message: None; "
+            "o = agent.observation; o.dino_count = 3; "
+            "exec('for i in range(3): o.dino_id[i] = i + 1; o.dino_x[i] = 4 + 5 * i; o.dino_y[i] = 8'); "
+            "print('go', flush=True); "
+            "agent.get_next_move(types.SimpleNamespace(tick=1, score=0)); "
+            "(end, length), = agent.phase.full_stalls; "
+            "assert 40 <= length <= 90, length; "
+            "assert agent.phase.stats['stalls'] == 1, agent.phase.stats"
+        )
+        env = os.environ.copy()
+        env["BOT_PHASE_BIG_MS"] = "120"
+        env.pop("BOT_PIN_CPU", None)
+        child = subprocess.Popen(
+            [sys.executable, "-c", code], cwd=ROOT / "bots" / "search_bot",
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env,
+        )
+        while (line := child.stdout.readline()) and line.strip() != "go":
+            pass
+        self.assertEqual(line.strip(), "go")
+        time.sleep(0.03)
+        os.kill(child.pid, signal.SIGSTOP)
+        time.sleep(0.05)
+        os.kill(child.pid, signal.SIGCONT)
+        _, stderr = child.communicate(timeout=30)
+        self.assertEqual(child.returncode, 0, stderr)
 
     @unittest.skipUnless(sys.platform.startswith("linux"), "CPU affinity is Linux-only")
     def test_search_bot_auto_cpu_pinning(self):

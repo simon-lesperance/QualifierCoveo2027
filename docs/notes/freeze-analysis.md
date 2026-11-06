@@ -4,6 +4,9 @@ Analysis date: 2026-11-06 UTC. Pressure-cut code is committed as `423c7be`,
 disabled by default. No bot build was uploaded or practice game started during
 this analysis.
 
+Follow-up: [phase-budget.md](phase-budget.md) finds a fixed 100 ms grid inside the bursts, shows
+they are not tied to game events, and uses both to search longer.
+
 ## Main finding
 
 **The major CPU dropouts follow a five-second wall-clock cycle, not a game-tick

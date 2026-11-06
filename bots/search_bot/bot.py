@@ -1,7 +1,8 @@
 """Open-loop MCTS through the compiled simulator, guided by a small value network.
 
 The library is built by tools/build_sim.py and loaded here at import time, which
-runs before the bot connects. Set BOT_TIME_MS to test with a different time budget.
+runs before the bot connects. Set BOT_TIME_MS to test with a different time budget, and
+BOT_PHASE_BIG_MS to turn on the phase-aware budget.
 """
 
 import ctypes
@@ -10,6 +11,7 @@ import sys
 import time
 
 from game_message import *
+from phase_budget import PhaseBudget
 
 WIDTH = 20
 CELLS = WIDTH * WIDTH
@@ -88,6 +90,14 @@ def read_cpu_pressure_us() -> int:
 ARRIVAL_GRACE_MS = float(os.environ.get("BOT_ARRIVAL_GRACE_MS", "6"))
 if ARRIVAL_GRACE_MS < 0:
     raise ValueError("BOT_ARRIVAL_GRACE_MS must be >= 0")
+# Phase-aware budget (phase_budget.py, docs/notes/phase-budget.md). 0 keeps the fixed budget;
+# a larger value is the budget for ticks whose deadline can't meet a predicted late freeze.
+PHASE_BIG_MS = float(os.environ.get("BOT_PHASE_BIG_MS", "0"))
+PHASE_CUT_MS = float(os.environ.get("BOT_PHASE_CUT_MS", "85"))
+PHASE_TRACE = os.environ.get("BOT_PHASE_TRACE", "") == "1"
+if PHASE_BIG_MS and PHASE_BIG_MS < TIME_BUDGET_MS:
+    raise ValueError("BOT_PHASE_BIG_MS must be 0 or >= BOT_TIME_MS")
+MAX_GAPS = 16
 RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 3, 5
 WIDENING, EXPLORATION = 3.0, 0.5
 VALUE_WEIGHT = 0.3
@@ -137,12 +147,33 @@ def load_library() -> ctypes.CDLL:
     library.sim_agent_set_waves.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_double]
     library.sim_agent_last_simulated.restype = ctypes.c_int
     library.sim_agent_last_simulated.argtypes = [ctypes.c_void_p]
+    library.sim_agent_gaps.restype = ctypes.c_int
+    library.sim_agent_gaps.argtypes = [
+        ctypes.c_void_p, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int,
+    ]
+    library.sim_now_ms.restype = ctypes.c_double
+    library.sim_now_ms.argtypes = []
     if library.sim_observation_size() != ctypes.sizeof(Observation):
         raise RuntimeError("Observation layout differs between Python and C++")
     return library
 
 
 LIBRARY = load_library()
+
+
+def clock_offset_ms() -> float:
+    """perf_counter milliseconds minus the library's clock, from the tightest of a few reads."""
+    best = None
+    for _ in range(20):
+        before = time.perf_counter() * 1000
+        native = LIBRARY.sim_now_ms()
+        after = time.perf_counter() * 1000
+        if best is None or after - before < best[0]:
+            best = (after - before, (before + after) / 2 - native)
+    return best[1]
+
+
+CLOCK_OFFSET_MS = clock_offset_ms()
 
 
 class Bot:
@@ -164,6 +195,13 @@ class Bot:
         self.psi_cut = 0
         self.max_psi_ms = 0.0
         self.replied_at = None
+        self.phase = None
+        if PHASE_BIG_MS > 0:
+            self.phase = PhaseBudget(
+                base_ms=TIME_BUDGET_MS, big_ms=PHASE_BIG_MS, cut_ms=min(PHASE_CUT_MS, TIME_BUDGET_MS),
+            )
+        self.gap_starts = (ctypes.c_double * MAX_GAPS)()
+        self.gap_ends = (ctypes.c_double * MAX_GAPS)()
 
     def fill(self, game_message: TeamGameState) -> None:
         o = self.observation
@@ -222,6 +260,7 @@ class Bot:
 
     def decide(self, game_message: TeamGameState) -> list[Action]:
         arrived = time.perf_counter()
+        thread_arrived = time.thread_time()
         tick = game_message.tick
         if self.psi_enabled:
             try:
@@ -243,11 +282,16 @@ class Bot:
             self.max_lag_ms = max(self.max_lag_ms, lag_ms)
         # The budget is measured from when the server most likely sent the tick.
         start = arrived - lag_ms / 1000
+        phase = self.phase
+        if phase is not None and self.replied_at is not None:
+            phase.observe_wait(self.replied_at * 1000, arrived * 1000, lag_ms)
         self.fill(game_message)
 
         budget_ms = TIME_BUDGET_MS
+        if phase is not None:
+            budget_ms = phase.budget(start * 1000, time.perf_counter() * 1000)
         if PSI_CUT_MS > 0 and tick <= self.pressured_until_tick:
-            budget_ms = min(TIME_BUDGET_MS, PSI_CUT_MS)
+            budget_ms = min(budget_ms, PSI_CUT_MS)
             self.psi_cut += 1
         remaining = budget_ms - (time.perf_counter() - start) * 1000
         kind, x, y = ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
@@ -255,6 +299,24 @@ class Bot:
             self.agent, ctypes.byref(self.observation), max(remaining, 1.0),
             ctypes.byref(kind), ctypes.byref(x), ctypes.byref(y),
         )
+
+        if phase is not None:
+            ended = time.perf_counter()
+            off_ms = max((ended - arrived) - (time.thread_time() - thread_arrived), 0.0) * 1000
+            count = LIBRARY.sim_agent_gaps(self.agent, self.gap_starts, self.gap_ends, MAX_GAPS)
+            gaps = [
+                (self.gap_starts[i] + CLOCK_OFFSET_MS, self.gap_ends[i] + CLOCK_OFFSET_MS) for i in range(count)
+            ]
+            overrun_ms = (ended - start) * 1000 - budget_ms
+            phase.observe_search(arrived * 1000, ended * 1000, gaps, off_ms, overrun_ms)
+            phase.finish(start * 1000, ended * 1000, budget_ms)
+            if PHASE_TRACE:
+                print(
+                    f"PHASE tick={tick} start={start * 1000:.1f} arrived={arrived * 1000:.1f} "
+                    f"budget={budget_ms:.1f} end={ended * 1000:.1f} off={off_ms:.1f} "
+                    f"gaps={';'.join(f'{a:.1f}-{b:.1f}' for a, b in gaps)}",
+                    flush=True,
+                )
 
         simulated = LIBRARY.sim_agent_last_simulated(self.agent)
         if simulated > 0:
@@ -267,9 +329,12 @@ class Bot:
                 f"simulated median={ordered[len(ordered) // 2]} min={ordered[0]} "
                 f"move_ms max={max(self.spent_ms):.1f} "
                 f"lagged={self.lagged} max_lag_ms={self.max_lag_ms:.1f} "
-                f"psi_cut={self.psi_cut} max_psi_ms={self.max_psi_ms:.1f}",
+                f"psi_cut={self.psi_cut} max_psi_ms={self.max_psi_ms:.1f}"
+                + (f" {self.phase.summary()}" if self.phase is not None else ""),
                 flush=True,
             )
+            if self.phase is not None:
+                self.phase.reset_stats()
             self.spent, self.spent_ms = [], []
             self.lagged = 0
             self.max_lag_ms = 0.0

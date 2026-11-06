@@ -21,6 +21,7 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 - `rich/dev` was merged with `develop` on 2026-11-05. Linux artifact support and native probe tests are retained. Where the search and live-bot implementations conflicted, this branch keeps `develop`'s policy/value-network stack instead of `rich/dev`'s experimental anytime/optimistic MCTS.
 - C++ builds keep x86-64-v3 with no CPU-specific tuning. `tools/build_pgo.py` adds local profile training and a checked profile-use library. In the untuned comparison, simulator/search PGO excluding value-net inference reduced local runtime by **2.31%**, while full-library PGO increased runtime by **7.64%**. The untuned simulator-only PGO library is installed locally; server performance is unmeasured. See [build throughput](results.md#build-throughput).
 - `tools/build_sim.py --linux --only libsim --server-tune --pgo-use <profile>` opts the server library into Cascade Lake scheduling without tuning local simulator tools. `ValueNet` remains excluded from the default merged PGO profile.
+- Branch `rich/phase-budget`: a phase-aware time budget learns the server's 5 s freeze bursts and their 100 ms grid during each game and searches 120 ms where no freeze can make the reply late. About a third more simulations than fixed 95 ms on the server, with no late replies in four games. Off by default; to ship it, set `BOT_PHASE_BIG_MS` to 120 in `bot.py`. See [phase-budget.md](notes/phase-budget.md).
 
 ## In progress: policy net from foresight play
 

@@ -12,12 +12,12 @@
 
 namespace sim {
 
-namespace {
-
 double now_ms() {
     using namespace std::chrono;
     return duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();
 }
+
+namespace {
 
 // How many spawn tiles a meteor on `cell` would cover.
 int pocket_cover(const uint8_t* mask, int cell) {
@@ -373,7 +373,15 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         return amaf[std::min(offset, kAmafOffsets - 1) * kAmafKeys + amaf_key(action, root.origin_y())];
     };
 
-    while (budget > 0 && (deadline_ms <= 0 || now_ms() < deadline_ms)) {
+    // With a clock limit, a long pause between two readings means the host took the CPU away.
+    double last_clock = deadline_ms > 0 ? now_ms() : 0;
+    while (budget > 0) {
+        if (deadline_ms > 0) {
+            double clock = now_ms();
+            if (clock - last_clock >= kGapMs && gaps_.size() < kMaxGaps) gaps_.push_back({last_clock, clock});
+            last_clock = clock;
+            if (clock >= deadline_ms) break;
+        }
         int guess = dice > 0 ? static_cast<int>(iteration % dice) : 0;
         Game game = dice > 0 ? dice_roots[guess] : root;
         if (dice == 0) game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + iteration * 40503u);
@@ -704,6 +712,7 @@ bool Agent::pick_volcano(const Game& root, int tick, Action& action) {
 Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
     root_visits_.clear();
+    gaps_.clear();
     uint32_t rng_seed = static_cast<uint32_t>(observation.tick) * 2654435761u;
     Game root = Game::from_observation(observation, rng_seed);
     for (int i = 0; i < observation.dino_count; i++) highest_id_ = std::max(highest_id_, observation.dino_id[i]);

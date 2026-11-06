@@ -51,6 +51,14 @@ Live MCTS, 120 games paired with the 7,000 baseline (mean 54,667, 240 games):
 
 Each doubling adds about 15,000 with foresight and about 2,700 without. Neither curve has flattened, but long plans only pay off when the dice are known. A faster simulator is therefore worth little by itself. High scores do improve faster than the mean, though, and the leaderboard rewards them.
 
+## Phase-aware time budget
+
+The server's CPU freezes come in bursts every 5,000 ms, on a 100 ms wall-clock grid inside each
+burst. They don't depend on game events. Learning both phases during a game and searching 120 ms
+except where a predicted freeze would make the reply late gave about a third more simulations
+than fixed 95 ms on the server (9,366 against 7,043, three and two games), with no late replies and
+no move over 130 ms. Opt-in through `BOT_PHASE_BIG_MS`. See [phase-budget.md](notes/phase-budget.md).
+
 ## Build throughput
 
 ### Initial Cascade Lake-tuned experiment

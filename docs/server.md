@@ -68,6 +68,8 @@ an archive does not authorize running a server game.
 
 The 95 ms is a safety margin and not a tuned value. Going to 120 ms would add about 25% more search, worth about 900 points at the measured slope, before counting extra late ticks.
 
+Freezes come in bursts every 5,000 ms of wall time, and inside a burst on a fixed 100 ms grid of about 50 ms each. They are not tied to game events. The opt-in phase-aware budget (`BOT_PHASE_BIG_MS`) learns both phases during a game and searches longer when no freeze can make the reply late. See [phase-budget.md](notes/phase-budget.md).
+
 ## Startup
 
 - A connection must send REGISTER within 5 s, or the server closes it and the game is lost.
