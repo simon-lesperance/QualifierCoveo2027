@@ -19,6 +19,7 @@ Bot for the Coveo Blitz 2027 qualifier, a solo high-score game. A Python bot on 
 - **Don't edit** `application.py` or `game_message.py` in a bot folder.
 - **Keep `Bot.__init__` fast.** The server closes a connection that hasn't registered within 5 s. Put slow setup at module level in `bot.py`.
 - **Build uploads with `tools/make_zip.py`.** `tar` from Git Bash produces an archive the server rejects.
+- **Important: prepare server libraries with `--server-tune`.** Before packaging `search_bot` for a server game, build with `tools/build_sim.py --linux --only libsim --server-tune --pgo-use <current-profile.profdata>`. Use the default PGO workflow that excludes `ValueNet`; regenerate the profile if stale or missing. Keep local builds untuned. A later ordinary build overwrites the server library, so make the server build the last build before packaging. See [server build preparation](docs/server.md#server-build-preparation).
 - **Don't use the game server without a person asking for it.** Run one command at a time, never poll or loop, and report errors. Practice games count towards the team's score.
 - **The bot and its nets may only use what a live bot sees.** `sim_search` knows the whole seed, so its scores are ceilings and not estimates of live play.
 
