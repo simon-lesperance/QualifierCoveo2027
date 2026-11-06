@@ -49,11 +49,13 @@ void Arc4::init(const uint8_t* key, int length) {
     }
     for (int i = 0; i < 256; i++) state_[i] = static_cast<uint8_t>(i);
     uint8_t j = 0;
+    int key_slot = 0;
     for (int i = 0; i < 256; i++) {
         uint8_t held = state_[i];
-        j = static_cast<uint8_t>(j + key[i % length] + held);
+        j = static_cast<uint8_t>(j + key[key_slot] + held);
         state_[i] = state_[j];
         state_[j] = held;
+        if (++key_slot == length) key_slot = 0;
     }
     i_ = 0;
     j_ = 0;

@@ -25,6 +25,19 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 
 Server scores are noisy, and 85,231 was a lucky game. On paired simulated games v11 is the strongest version.
 
+## Simulator speed
+
+Two changes from `rich/dev` make the simulator faster without changing any result: the early-exit safety search (`nearest_safe`) and an RC4 key index without a modulo. `sim/safety_test.cpp` checks the safety search against an independent BFS.
+
+| Check | Result |
+|---|---|
+| 18 games at the live settings with the PPO net, 4 alternating rounds | 124.5 s to 108.4 s, about 15% more search per second |
+| Same seeds, old and new build | Every game identical |
+| `tools/check_sim.py`, 12 games | Identical to the engine |
+| 360 paired games, budget 7,240 against 6,300 | +123 ±377, with 4 games at 80,000+ against 6 |
+
+The extra search has no measurable effect on the mean, and the best game of 108,598 is one game. The speedups still cost nothing, so they belong in the next upload. Their effect on the server hasn't been measured.
+
 ## Budget against score
 
 Foresight search with the gen2 net, flood value and every tile as a target. Six maps up to width 200, fewer beyond that:
