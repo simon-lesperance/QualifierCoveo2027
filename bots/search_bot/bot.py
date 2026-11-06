@@ -22,6 +22,66 @@ SPECIES = {"Stegosaurus": 0, "Velociraptor": 1, "Triceratops": 2, "Tyrannosaurus
 
 # The limit is 150 ms, but even a trivial bot sees spikes of up to 65 ms.
 TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
+PSI_CUT_MS = float(os.environ.get("BOT_PSI_CUT_MS", "0"))
+PSI_THRESHOLD_MS = float(os.environ.get("BOT_PSI_THRESHOLD_MS", "20"))
+# Freezes come in clusters, so the cut budget stays for this many ticks after a pressured one.
+PSI_HOLD_TICKS = int(os.environ.get("BOT_PSI_HOLD_TICKS", "3"))
+if PSI_CUT_MS < 0:
+    raise ValueError("BOT_PSI_CUT_MS must be >= 0")
+if PSI_THRESHOLD_MS < 0:
+    raise ValueError("BOT_PSI_THRESHOLD_MS must be >= 0")
+if PSI_HOLD_TICKS < 0:
+    raise ValueError("BOT_PSI_HOLD_TICKS must be >= 0")
+
+
+def pin_cpu() -> None:
+    requested = os.environ.get("BOT_PIN_CPU", "")
+    if not requested:
+        print("PIN off", flush=True)
+        return
+
+    try:
+        allowed = os.sched_getaffinity(0)
+        if requested == "auto":
+            with open("/proc/self/stat", encoding="ascii") as stat:
+                fields = stat.read().rsplit(")", 1)[1].split()
+            if len(fields) <= 36:
+                raise ValueError("could not read current CPU from /proc/self/stat")
+            cpu = int(fields[36])
+        else:
+            cpu = int(requested)
+    except (AttributeError, OSError, ValueError) as exc:
+        print(f"WARNING: CPU pinning unavailable: {exc}", file=sys.stderr, flush=True)
+        print("PIN off", flush=True)
+        return
+
+    if cpu not in allowed:
+        print(f"WARNING: CPU {cpu} is not in the allowed CPU set", file=sys.stderr, flush=True)
+        print("PIN off", flush=True)
+        return
+    try:
+        os.sched_setaffinity(0, {cpu})
+    except OSError as exc:
+        print(f"WARNING: could not pin to CPU {cpu}: {exc}", file=sys.stderr, flush=True)
+        print("PIN off", flush=True)
+        return
+    print(f"PIN cpu={cpu} allowed={sorted(allowed)}", flush=True)
+
+
+pin_cpu()
+
+
+def read_cpu_pressure_us() -> int:
+    with open("/proc/pressure/cpu", encoding="ascii") as pressure:
+        for line in pressure:
+            if line.startswith("some "):
+                for field in line.split():
+                    if field.startswith("total="):
+                        return int(field[6:])
+                break
+    raise ValueError("missing some total in /proc/pressure/cpu")
+
+
 # The next tick normally arrives about 3 ms after we reply (p95 5.4 ms on the server). When the
 # host stalls us between ticks, the gap beyond this grace is time the server's clock already spent,
 # so the budget shrinks by it.
@@ -98,6 +158,11 @@ class Bot:
         self.spent_ms = []
         self.lagged = 0    # Ticks that arrived late, and the worst lateness.
         self.max_lag_ms = 0.0
+        self.psi_enabled = PSI_CUT_MS > 0
+        self.previous_psi_us = None
+        self.pressured_until_tick = -1
+        self.psi_cut = 0
+        self.max_psi_ms = 0.0
         self.replied_at = None
 
     def fill(self, game_message: TeamGameState) -> None:
@@ -157,6 +222,21 @@ class Bot:
 
     def decide(self, game_message: TeamGameState) -> list[Action]:
         arrived = time.perf_counter()
+        tick = game_message.tick
+        if self.psi_enabled:
+            try:
+                pressure_us = read_cpu_pressure_us()
+            except (OSError, ValueError) as exc:
+                print(f"WARNING: CPU pressure monitoring disabled: {exc}", file=sys.stderr, flush=True)
+                self.psi_enabled = False
+                self.previous_psi_us = None
+            else:
+                if self.previous_psi_us is not None:
+                    psi_ms = max(pressure_us - self.previous_psi_us, 0) / 1000
+                    self.max_psi_ms = max(self.max_psi_ms, psi_ms)
+                    if psi_ms >= PSI_THRESHOLD_MS:
+                        self.pressured_until_tick = tick + PSI_HOLD_TICKS
+                self.previous_psi_us = pressure_us
         lag_ms = self.arrival_lag_ms(arrived)
         if lag_ms > 0:
             self.lagged += 1
@@ -165,7 +245,11 @@ class Bot:
         start = arrived - lag_ms / 1000
         self.fill(game_message)
 
-        remaining = TIME_BUDGET_MS - (time.perf_counter() - start) * 1000
+        budget_ms = TIME_BUDGET_MS
+        if PSI_CUT_MS > 0 and tick <= self.pressured_until_tick:
+            budget_ms = min(TIME_BUDGET_MS, PSI_CUT_MS)
+            self.psi_cut += 1
+        remaining = budget_ms - (time.perf_counter() - start) * 1000
         kind, x, y = ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
         LIBRARY.sim_agent_act(
             self.agent, ctypes.byref(self.observation), max(remaining, 1.0),
@@ -182,12 +266,15 @@ class Bot:
                 f"BUDGET tick={game_message.tick} score={game_message.score} "
                 f"simulated median={ordered[len(ordered) // 2]} min={ordered[0]} "
                 f"move_ms max={max(self.spent_ms):.1f} "
-                f"lagged={self.lagged} max_lag_ms={self.max_lag_ms:.1f}",
+                f"lagged={self.lagged} max_lag_ms={self.max_lag_ms:.1f} "
+                f"psi_cut={self.psi_cut} max_psi_ms={self.max_psi_ms:.1f}",
                 flush=True,
             )
             self.spent, self.spent_ms = [], []
             self.lagged = 0
             self.max_lag_ms = 0.0
+            self.psi_cut = 0
+            self.max_psi_ms = 0.0
 
         if kind.value == 1:
             return [LaunchMeteorAction(target=WorldPosition(x=x.value, y=y.value))]

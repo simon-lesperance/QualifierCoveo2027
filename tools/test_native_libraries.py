@@ -1,6 +1,7 @@
 """Smoke checks for the host libraries built by tools/build_sim.py."""
 
 import ctypes
+import os
 import subprocess
 import sys
 import unittest
@@ -44,6 +45,63 @@ class NativeLibrariesTest(unittest.TestCase):
             capture_output=True, text=True, timeout=30,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_search_bot_pressure_cut_is_opt_in(self):
+        code = (
+            "import types, bot; "
+            "assert bot.PSI_CUT_MS == 0; "
+            "agent = bot.Bot(); agent.fill = lambda message: None; "
+            "exec('def unexpected_read():\\n raise AssertionError(\"pressure read while disabled\")'); "
+            "bot.read_cpu_pressure_us = unexpected_read; "
+            "agent.get_next_move(types.SimpleNamespace(tick=1, score=0)); "
+            "assert not agent.psi_enabled; assert agent.psi_cut == 0"
+        )
+        env = os.environ.copy()
+        env.pop("BOT_PSI_CUT_MS", None)
+        env.pop("BOT_PIN_CPU", None)
+        result = subprocess.run(
+            [sys.executable, "-c", code], cwd=ROOT / "bots" / "search_bot",
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_search_bot_pressure_shortens_decision_budget(self):
+        code = (
+            "import time, types, bot; "
+            "agent = bot.Bot(); agent.fill = lambda message: None; "
+            "o = agent.observation; o.dino_count = 3; "
+            "exec('for i in range(3): o.dino_id[i] = i + 1; o.dino_x[i] = 4 + 5 * i; o.dino_y[i] = 8'); "
+            "readings = iter((0, 100000)); bot.read_cpu_pressure_us = lambda: next(readings); "
+            "agent.get_next_move(types.SimpleNamespace(tick=1, score=0)); "
+            "start = time.perf_counter(); "
+            "agent.get_next_move(types.SimpleNamespace(tick=2, score=0)); "
+            "elapsed = (time.perf_counter() - start) * 1000; "
+            "assert agent.psi_cut == 1, agent.psi_cut; "
+            "assert agent.max_psi_ms >= bot.PSI_THRESHOLD_MS, agent.max_psi_ms; "
+            "assert elapsed < bot.TIME_BUDGET_MS - 40, elapsed"
+        )
+        env = os.environ.copy()
+        env["BOT_TIME_MS"] = "95"
+        env["BOT_PSI_CUT_MS"] = "30"
+        env["BOT_PSI_THRESHOLD_MS"] = "20"
+        env.pop("BOT_PIN_CPU", None)
+        result = subprocess.run(
+            [sys.executable, "-c", code], cwd=ROOT / "bots" / "search_bot",
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "CPU affinity is Linux-only")
+    def test_search_bot_auto_cpu_pinning(self):
+        code = "import os, bot; assert len(os.sched_getaffinity(0)) == 1"
+        env = os.environ.copy()
+        env["BOT_PIN_CPU"] = "auto"
+        result = subprocess.run(
+            [sys.executable, "-c", code], cwd=ROOT / "bots" / "search_bot",
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PIN cpu=", result.stdout)
 
     def test_native_probe_exports_bfs(self):
         library = ctypes.CDLL(str(ROOT / "experiments" / "probe_bot" / library_name("probe")))
