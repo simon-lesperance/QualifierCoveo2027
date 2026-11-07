@@ -48,6 +48,9 @@ struct AgentConfig {
     double prior_floor = 0.1;    // Share of the prior spread over all actions, so none is ruled out.
     int policy_cost = 1500;      // Simulated ticks charged per evaluation, so tests stay fair on time.
     bool policy_only = false;    // Plays the policy's top action, with no search.
+    int root_halving = 0;        // Above 0, the root tries this many actions by sequential halving.
+    double halving_prior = 0;    // How much the prior counts when halving.
+    double tree_puct = 0;        // Above 0, nodes ranked by the tree net also use its prior this way.
     PolicyNet* tree_policy = nullptr;  // A cheaper net for inside the tree. Without it, policy does that too.
     int policy_depth = 0;        // Also orders the widening of nodes down to this depth.
     int policy_tree_cost = 0;    // Simulated ticks charged for each of those evaluations.
@@ -96,6 +99,9 @@ double flood_outlook(Game game, int tick, const std::vector<std::pair<int, Actio
 // The tile whose blast covers the most spawn tiles, and how many there are of each.
 int best_pocket_tile(const Game& game, int& size, int& covered);
 
+// Milliseconds on the monotonic clock used for search deadlines.
+double now_ms();
+
 // Plans from what the server sends: no seed, no future rows, no knowledge of spawns.
 class Agent {
 public:
@@ -126,6 +132,16 @@ public:
         config_.pocket_weight = pocket_weight;
     }
     int last_simulated() const { return last_simulated_; }
+
+    // Pauses of at least kGapMs between clock readings in the last timed search, as
+    // [start, end] in now_ms() time. They show when the host took the CPU away.
+    struct Gap {
+        double start;
+        double end;
+    };
+    static constexpr double kGapMs = 5.0;
+    static constexpr size_t kMaxGaps = 16;
+    const std::vector<Gap>& last_gaps() const { return gaps_; }
 
     // How the last MCTS search spread its visits over the root's actions.
     struct RootVisit {
@@ -159,6 +175,8 @@ private:
     std::vector<Action> ranked_volcanoes_;
     std::vector<double> flood_bonus_;  // Parallel to ranked_volcanoes_.
     std::vector<RootVisit> root_visits_;
+    std::vector<Gap> gaps_;
+    int last_iterations_ = 60;
 };
 
 }  // namespace sim

@@ -23,6 +23,7 @@ public:
 private:
     int channels_ = 0;
     int hidden_ = 0;
+    bool depthwise_ = false;
     std::vector<float> weights_;
     std::vector<float> a_;
     std::vector<float> b_;
