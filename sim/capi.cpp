@@ -62,6 +62,11 @@ SIM_EXPORT int sim_agent_load_tree_policy(void* agent, const char* path, int dep
     return 1;
 }
 
+// 0 keeps UCT at the root; above 0, the root tries that many actions by sequential halving.
+SIM_EXPORT void sim_agent_set_root_halving(void* agent, int actions, double prior_weight) {
+    static_cast<sim::Agent*>(agent)->set_root_halving(actions, prior_weight);
+}
+
 SIM_EXPORT void sim_agent_set_waves(void* agent, int pocket_limit, int pocket_targets, double pocket_weight) {
     static_cast<sim::Agent*>(agent)->set_waves(pocket_limit, pocket_targets, pocket_weight);
 }

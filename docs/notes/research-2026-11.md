@@ -55,3 +55,23 @@ Map skipping: the bot reads the map on tick 1 from the height of the lowest moun
 games. On other maps it replies late until it's kicked after 50 ticks, which voids the game. In 1,560
 local games only `volcanic_plains` reached 85,000: 11 of 520, against a best of 82,162 on
 `deep_crevasse` and 56,443 on `mountain_range`.
+
+### Fresh seeds 9000+, 180 paired games
+
+| Change | Against | Result |
+|---|---|---|
+| ds32 at the root and in the tree, widening 2, exploration 0.35, value weight 0.4 (v43) | v37 | +3,241 ±554 |
+| Exploration 0.25 / value weight 0.5 / 0.6 | v43 | -560 ±547 / -343 ±585 / -1,125 ±540 |
+| Depth 6 / root prior weight 0.5 | v43 | -229 ±591 / -527 ±515 |
+| Widening 1.5 (v44) | v43 | +1,285 ±499 |
+| Widening 1.0 / 1.25 / ds32 to depth 2 | v44 | -469 ±451 / -48 ±473 / +602 ±509 |
+| **Sequential halving, 16 root actions** | v43 | **+4,280 ±512** |
+| Halving with 8 / 32 actions / with the prior in the ranking | v43 | +1,822 ±536 / +1,411 ±584 / -1,032 ±493 |
+| Halving 16 with widening 1.5 (v45) | v44 | +2,369 ±547 |
+| Halving 16 with widening 2 against widening 1.5 | v45 | +626 ±604 |
+
+Against v37 on these seeds, v45's setup is +6,896 ±512 and halving with widening 2 is +7,522 ±574.
+Other nets in place of ds32 all lost: 24 channels -737 ±741, 48 channels -1,677 ±683, a copy of the
+plan-start PPO net -423 ±618 (120 games each). A prior at depth-1 nodes lost 462 ±731.
+
+On the server, v45 averaged about 66,700 over its first 11 volcanic games and scored 108,536.

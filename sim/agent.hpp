@@ -123,6 +123,10 @@ public:
         config_.policy_depth = depth;
         config_.policy_tree_visits = visits;
     }
+    void set_root_halving(int actions, double prior_weight) {
+        config_.root_halving = actions;
+        config_.halving_prior = prior_weight;
+    }
     void set_volcano_rank(bool on) { config_.volcano_rank = on; }
     void set_flood_weight(double weight) { config_.flood_weight = weight; }
     void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {
