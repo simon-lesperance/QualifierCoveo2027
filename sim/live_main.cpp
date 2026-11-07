@@ -8,6 +8,7 @@
 //                              [--net file] [--value-weight x] [--net-cost n] [--biome name]
 //                              [--policy file] [--tree-policy file] [--puct x] [--log folder]
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -16,6 +17,7 @@
 #include <vector>
 
 #include "agent.hpp"
+#include "features.hpp"
 
 namespace {
 
@@ -28,6 +30,7 @@ struct Result {
 };
 
 // log_folder, if set, gets one csv per game: tick, score, kills, alive, lava tiles, spawn tiles.
+std::string dump_folder;  // If set, gets one file of search records per game.
 std::string rng_tag;  // Keeps a seed's map but changes its dice, to separate the two.
 int frame_every = 0;
 int frame_first = 0;
@@ -41,9 +44,25 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
     int last_id = 0;
     std::FILE* log = nullptr;
     if (!log_folder.empty()) log = std::fopen((log_folder + "/" + biome + "-" + seed + ".csv").c_str(), "w");
+    std::FILE* dump = nullptr;
+    if (!dump_folder.empty()) dump = std::fopen((dump_folder + "/" + biome + "-" + seed + ".bin").c_str(), "wb");
     for (int tick = 1; tick <= sim::kMaxTicks; tick++) {
         sim::Observation observation = game.observe(tick);
         game.step(tick, agent.act(observation, experiment ? &game : nullptr));
+        const sim::Agent::SearchRecord& record = agent.last_record();
+        if (dump != nullptr && record.tick == tick && record.features.size() == sim::kPolicyBytes) {
+            // Features, then int16 tick, chosen code, arm count, and 16 (code, visits) pairs.
+            int16_t header[3] = {static_cast<int16_t>(tick), static_cast<int16_t>(record.chosen),
+                                 static_cast<int16_t>(std::min<size_t>(16, record.arms.size()))};
+            int16_t arms[32] = {};
+            for (size_t i = 0; i < record.arms.size() && i < 16; i++) {
+                arms[2 * i] = static_cast<int16_t>(record.arms[i].first);
+                arms[2 * i + 1] = static_cast<int16_t>(std::min(30000, record.arms[i].second));
+            }
+            std::fwrite(record.features.data(), 1, record.features.size(), dump);
+            std::fwrite(header, sizeof(header), 1, dump);
+            std::fwrite(arms, sizeof(arms), 1, dump);
+        }
         for (int i = 0; i < game.dino_count(); i++) last_id = std::max(last_id, game.dino(i).id);
         if (frame_every > 0 && tick >= frame_first && tick <= frame_last && tick % frame_every == 0) {
             std::printf("tick %d score %d spawn %d origin %d", tick, game.score(), game.spawn_tiles(), game.origin_y());
@@ -70,10 +89,12 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
         if (log != nullptr) {
             int lava = 0;
             for (int cell = 0; cell < sim::kCells; cell++) lava += (game.flags(cell) & sim::kLava) != 0;
-            std::fprintf(log, "%d,%d,%d,%d,%d,%d\n", tick, game.score(), game.total_kills(), game.dino_count(), lava, game.spawn_tiles());
+            std::fprintf(log, "%d,%d,%d,%d,%d,%d,%d\n", tick, game.score(), game.total_kills(), game.dino_count(), lava,
+                         game.spawn_tiles(), agent.last_iterations());
         }
     }
     if (log != nullptr) std::fclose(log);
+    if (dump != nullptr) std::fclose(dump);
     return {game.score(), game.total_kills(), last_id};
 }
 
@@ -124,6 +145,14 @@ int main(int argc, char** argv) {
         else if (name == "--tree-policy") tree_policy_path = argv[i + 1];
         else if (name == "--root-halving") config.root_halving = value;
         else if (name == "--halving-prior") config.halving_prior = std::atof(argv[i + 1]);
+        else if (name == "--halving-crn") config.halving_crn = value != 0;
+        else if (name == "--tree-reuse") config.tree_reuse = value;
+        else if (name == "--halving-skew") config.halving_skew = std::atof(argv[i + 1]);
+        else if (name == "--dump") {
+            dump_folder = argv[i + 1];
+            config.record_search = true;
+        }
+        else if (name == "--halving-max") config.halving_max = std::atof(argv[i + 1]);
         else if (name == "--tree-puct") config.tree_puct = std::atof(argv[i + 1]);
         else if (name == "--policy-only") config.policy_only = value != 0;
         else if (name == "--policy-depth") config.policy_depth = value;
