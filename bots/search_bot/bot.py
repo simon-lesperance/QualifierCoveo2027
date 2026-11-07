@@ -31,7 +31,7 @@ TIME_BUDGET_MS = float(os.environ.get("BOT_TIME_MS", "95"))
 ARRIVAL_GRACE_MS = float(os.environ.get("BOT_ARRIVAL_GRACE_MS", "6"))
 # Phase-aware budget (phase_budget.py, docs/notes/phase-budget.md). 0 keeps the fixed budget;
 # a larger value is the budget for ticks whose deadline can't meet a predicted late freeze.
-PHASE_BIG_MS = float(os.environ.get("BOT_PHASE_BIG_MS", "120"))
+PHASE_BIG_MS = float(os.environ.get("BOT_PHASE_BIG_MS", "0"))
 PHASE_CUT_MS = float(os.environ.get("BOT_PHASE_CUT_MS", "85"))
 PHASE_TRACE = os.environ.get("BOT_PHASE_TRACE", "1") == "1"
 MAX_GAPS = 16
@@ -45,7 +45,7 @@ WIDENING, EXPLORATION = 3.0, 0.5
 VALUE_WEIGHT = 0.3
 POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT = 60, 4, 0.0
 POLICY_PUCT = 0.3  # Used only if policy_net.bin is in this folder.
-TREE_DEPTH, TREE_VISITS = 1, 1  # Used only if tree_net.bin is in this folder too.
+TREE_DEPTH, TREE_VISITS = 1, 0  # Used only if tree_net.bin is in this folder too.
 
 
 class Observation(ctypes.Structure):
