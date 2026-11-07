@@ -84,3 +84,19 @@ SIM_EXPORT void sim_agent_act(void* agent, const sim::Observation* observation, 
 SIM_EXPORT int sim_agent_last_simulated(void* agent) {
     return static_cast<sim::Agent*>(agent)->last_simulated();
 }
+
+// Copies up to capacity pauses from the last timed search; returns how many there were.
+SIM_EXPORT int sim_agent_gaps(void* agent, double* starts, double* ends, int capacity) {
+    const auto& gaps = static_cast<sim::Agent*>(agent)->last_gaps();
+    int count = static_cast<int>(gaps.size());
+    for (int i = 0; i < count && i < capacity; i++) {
+        starts[i] = gaps[i].start;
+        ends[i] = gaps[i].end;
+    }
+    return count;
+}
+
+// The clock behind search deadlines and gaps, in milliseconds.
+SIM_EXPORT double sim_now_ms() {
+    return sim::now_ms();
+}
