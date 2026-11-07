@@ -5,9 +5,15 @@
 //
 // Actions: 0 is nothing, 1 + cell launches a meteor, 401 + cell triggers a volcano.
 // Cells are frame-relative: row * width + column.
+//
+// vec_set_plans makes a share of restarts begin part-way through a foresight plan, so
+// training sees the positions such plans reach. Each line of the file is a biome index,
+// a seed, then 1,000 action codes.
 
 #include <cstdint>
+#include <algorithm>
 #include <cstring>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -37,7 +43,15 @@ struct Slot {
     int tick = 1;
 };
 
+struct Plan {
+    int biome = 0;
+    std::string seed;
+    std::vector<int> codes;
+};
+
 struct VecEnv {
+    std::vector<Plan> plans;
+    double plan_share = 0;
     std::vector<Slot> slots;
     std::vector<int> biomes;
     std::string prefix;
@@ -45,9 +59,27 @@ struct VecEnv {
 };
 
 
+Action decode(int code, const Game& game);
+
+uint64_t mix(uint64_t value) {
+    value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ull;
+    value = (value ^ (value >> 27)) * 0x94d049bb133111ebull;
+    return value ^ (value >> 31);
+}
+
 // Seeds depend only on the slot and how many games it has played.
 void restart(VecEnv& env, int index, long long number) {
     Slot& slot = env.slots[index];
+    uint64_t draw = mix(static_cast<uint64_t>(index) * 1000003ull + static_cast<uint64_t>(number) + 1);
+    if (!env.plans.empty() && (draw % 1000) < env.plan_share * 1000) {
+        const Plan& plan = env.plans[mix(draw + 1) % env.plans.size()];
+        int start = 1 + static_cast<int>(mix(draw + 2) % (sim::kMaxTicks - 100));
+        slot.terrain = std::make_unique<Terrain>(plan.seed, kBiomes[plan.biome]);
+        slot.game.emplace(*slot.terrain, plan.seed);
+        for (int tick = 1; tick < start; tick++) slot.game->step(tick, decode(plan.codes[tick - 1], *slot.game));
+        slot.tick = start;
+        return;
+    }
     std::string seed = env.prefix + "-" + std::to_string(index) + "-" + std::to_string(number);
     int biome = env.biomes[(index + number) % env.biomes.size()];
     slot.terrain = std::make_unique<Terrain>(seed, kBiomes[biome]);
@@ -97,10 +129,24 @@ SIM_EXPORT void* vec_create(int envs, int threads, int biome_mask, const char* p
         if (desync) {
             Slot& slot = env->slots[i];
             int skip = static_cast<int>((i * 2654435761ull) % (sim::kMaxTicks - 1));
-            for (int t = 0; t < skip; t++) slot.game->step(slot.tick++, Action{});
+            for (int t = 0; t < skip && slot.tick < sim::kMaxTicks; t++) slot.game->step(slot.tick++, Action{});
         }
     });
     return env;
+}
+
+// Returns how many plans it read. Takes effect from each game's next restart.
+SIM_EXPORT int vec_set_plans(void* handle, const char* path, double share) {
+    auto* env = static_cast<VecEnv*>(handle);
+    std::ifstream file(path);
+    Plan plan;
+    while (file >> plan.biome >> plan.seed) {
+        plan.codes.resize(sim::kMaxTicks);
+        for (int& code : plan.codes) file >> code;
+        env->plans.push_back(plan);
+    }
+    env->plan_share = share;
+    return static_cast<int>(env->plans.size());
 }
 
 SIM_EXPORT void vec_destroy(void* handle) {

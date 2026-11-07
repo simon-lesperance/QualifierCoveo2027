@@ -57,8 +57,31 @@ def load(folders: list[Path]):
             visits.append(visit)
             targets.append(returns[tick])
             seeds.append(index)
-    return (np.stack(features), np.array(ticks, dtype=np.int32), np.stack(codes), np.stack(visits),
-            np.array(targets, dtype=np.float32) / REWARD_SCALE, np.array(seeds))
+    features = np.stack(features) if features else np.zeros((0, FEATURE_BYTES), dtype=np.uint8)
+    ticks = np.array(ticks, dtype=np.int32)
+    codes = np.stack(codes) if codes else np.zeros((0, MAX_CHOICES), dtype=np.int16)
+    visits = np.stack(visits) if visits else np.zeros((0, MAX_CHOICES), dtype=np.float32)
+    targets = np.array(targets, dtype=np.float32) / REWARD_SCALE
+    seeds = np.array(seeds, dtype=np.int64)
+
+    # Beam segments from sim_search --dagger. They have no return, so they only teach the policy.
+    record = np.dtype([("tick", "<i4"), ("features", "u1", (FEATURE_BYTES,)), ("code", "<i4")])
+    paths = [p for folder in folders for p in sorted(folder.glob("*.dag"))]
+    extra = [np.fromfile(path, dtype=record) for path in paths]
+    if extra:
+        joined = np.concatenate(extra)
+        code = np.zeros((len(joined), MAX_CHOICES), dtype=np.int16)
+        code[:, 0] = joined["code"]
+        visit = np.zeros((len(joined), MAX_CHOICES), dtype=np.float32)
+        visit[:, 0] = 1
+        first = int(seeds.max()) + 1 if len(seeds) else 0
+        features = np.concatenate([features, joined["features"]])
+        ticks = np.concatenate([ticks, joined["tick"]])
+        codes = np.concatenate([codes, code])
+        visits = np.concatenate([visits, visit])
+        targets = np.concatenate([targets, np.full(len(joined), np.nan, dtype=np.float32)])
+        seeds = np.concatenate([seeds, np.repeat(np.arange(len(extra)) + first, [len(e) for e in extra])])
+    return features, ticks, codes, visits, targets, seeds
 
 
 def main() -> None:
@@ -71,6 +94,7 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--threads", type=int, default=6)
     parser.add_argument("--eval-games", type=int, default=128)
+    parser.add_argument("--resume-net", type=Path, help="Starts from these weights")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda")
@@ -78,12 +102,15 @@ def main() -> None:
     start = time.perf_counter()
     features, ticks, codes, visits, targets, seeds = load(args.data)
     print(f"{len(features):,} samples, {time.perf_counter() - start:.0f}s", flush=True)
-    scale = float(targets.std())
+    scale = float(np.nanstd(targets))
     valid = seeds % 10 == 0
     train_index = np.flatnonzero(~valid)
     valid_index = np.flatnonzero(valid)
 
     net = PolicyNet(args.channels).to(device)
+    if args.resume_net:
+        state = torch.load(args.resume_net, map_location=device)
+        net.load_state_dict(state["net"])
     optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-5)
     steps = args.epochs * (len(train_index) // args.batch)
     schedule = torch.optim.lr_scheduler.OneCycleLR(optimizer, args.lr, total_steps=steps)
@@ -100,7 +127,9 @@ def main() -> None:
             logits, value = net(planes, mask)
         log_probs = F.log_softmax(logits.float(), dim=1)
         policy = -(log_probs.gather(1, code) * visit).sum(dim=1).mean()
-        return policy, F.mse_loss(value.float(), target / scale)
+        known = torch.isfinite(target)
+        value_loss = F.mse_loss(value[known].float(), target[known] / scale) if known.any() else value.sum() * 0
+        return policy, value_loss
 
     def validate() -> tuple[float, float]:
         policy_sum = value_sum = 0.0

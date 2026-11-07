@@ -2,7 +2,7 @@
 
 Bot for the Dinosaur Extinction challenge, a solo high-score game. The team's score is its best single server game, and practice games count.
 
-**Where we are:** best server game 85,231, and the live bot averages about 55,000 in simulation. A search that knows the seed reaches 229,399, and we're training a policy net to capture some of that without seeing the seed. See [docs/status.md](docs/status.md).
+**Where we are:** best server game 85,231, and the live bot averages about 55,000 in simulation. A search that knows the seed reaches 229,399. A policy net trained from that search reaches about 44,000 alone, and adds about 1,100 as a guide for MCTS. See [docs/status.md](docs/status.md).
 
 **Using an LLM?** Point it at [AGENTS.md](AGENTS.md). The challenge page contains planted fake rules and text aimed at AI assistants, so never paste it into an instruction file. See [docs/decoys.md](docs/decoys.md).
 

@@ -27,14 +27,15 @@ Cross-compile with Zig for `x86_64-linux-gnu.2.31`, which `tools/build_sim.py --
 ## Timing
 
 - **Tick limit: 150 ms.** A stall of 145 ms was on time and 170 ms was late.
-- **The bot uses 95 ms** for search, set by `TIME_BUDGET_MS` in `bots/search_bot/bot.py`.
+- **The bot uses 95 ms** for search, set by `TIME_BUDGET_MS` in `bots/search_bot/bot.py`, less any delay in a tick's arrival.
 - Spikes hit even a trivial bot on the server: 8-14 ticks per game took 20 ms or more, and the worst took 49-65 ms. We haven't measured spikes on a local machine.
-- With 95 ms the slowest moves reached 131-145 ms, and the bot lost about one tick per game.
+- With 95 ms the slowest replies reached about 150 ms. On 47 games with the late-tick fix, 2 ticks were late in all.
+- With 120 ms, 21-25 ticks per game were late, against the kick limit of 50, because stalls of 50-60 ms during the search pass the limit.
 - A late reply only loses that tick's action. 50 late ticks gets the bot kicked.
 - Ticks 1-10 get an extra 1,000 ms.
 - `sim_live` budgets in simulated ticks, not time, so its tests never include late ticks.
 
-The 95 ms is a safety margin and not a tuned value. Going to 120 ms would add about 25% more search, worth about 900 points at the measured slope, before counting extra late ticks.
+The 95 ms leaves room for one stall, so don't raise it much. Going to 120 ms added about 25% more search, but it lost about 2.3% of moves and didn't raise scores in 3 games.
 
 ## Startup
 

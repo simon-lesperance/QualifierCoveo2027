@@ -40,3 +40,4 @@ wandb/
 build/
 *.pdb
 *.lib
+bots/search_bot/policy_net.bin

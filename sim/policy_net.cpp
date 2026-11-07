@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace sim {
@@ -50,6 +51,25 @@ void convolve(const float* in, int in_channels, const float* weights, int out_ch
     }
 }
 
+// One 3x3 filter per channel, then a 1x1 mix of all channels. Costs far less than a full convolution.
+// weights is (channels, 9), a bias per channel, then (channels, channels) and a bias per channel.
+KERNEL void mix_channels(const float* in, const float* weights, int channels, float* out) {
+    for (int o = 0; o < channels; o++) {
+        float* target = out + o * kCells;
+        for (int i = 0; i < channels; i++) {
+            float weight = weights[o * channels + i];
+            const float* source = in + i * kCells;
+            for (int cell = 0; cell < kCells; cell++) target[cell] += weight * source[cell];
+        }
+        float bias = weights[channels * channels + o];
+        for (int cell = 0; cell < kCells; cell++) target[cell] += bias;
+    }
+}
+
+KERNEL void relu(float* values, int count) {
+    for (int i = 0; i < count; i++) values[i] = values[i] > 0 ? values[i] : 0;
+}
+
 }  // namespace
 
 bool PolicyNet::load(const char* path) {
@@ -61,9 +81,12 @@ bool PolicyNet::load(const char* path) {
         return false;
     }
     channels_ = header[0];
-    hidden_ = header[1];
-    size_t count = (channels_ * kPlanes * 9 + channels_) + kBlocks * (channels_ * channels_ * 9 + channels_) +
-                   (2 * channels_ + 2) + (2 * channels_ * hidden_ + hidden_) + (hidden_ + 1);
+    depthwise_ = header[1] < 0;
+    hidden_ = std::abs(header[1]);
+    size_t head = depthwise_ ? channels_ * kPlanes + channels_ : channels_ * kPlanes * 9 + channels_;
+    size_t block = depthwise_ ? (channels_ * 9 + channels_) + (channels_ * channels_ + channels_)
+                              : channels_ * channels_ * 9 + channels_;
+    size_t count = head + kBlocks * block + (2 * channels_ + 2) + (2 * channels_ * hidden_ + hidden_) + (hidden_ + 1);
     weights_.resize(count);
     bool complete = std::fread(weights_.data(), sizeof(float), count, file) == count;
     std::fclose(file);
@@ -88,27 +111,66 @@ void PolicyNet::evaluate(const uint8_t* features, int tick, float* logits) {
     flat[kGlobals + 1] = static_cast<float>(std::cos(angle / 5));
     flat[kGlobals + 2] = static_cast<float>(std::sin(angle / kStegoCycle));
     flat[kGlobals + 3] = static_cast<float>(std::cos(angle / kStegoCycle));
+    float spawn_size = features[kFeatureBytes + kCells] / 255.0f;
+    float wave_clock = features[kFeatureBytes + kCells + 1] / 255.0f;
+    float map_empty = features[kChannels * kCells + 1] == 0 ? 1.0f : 0.0f;  // A wave comes next tick.
     for (int row = 0; row < kHeight; row++) {
         for (int column = 0; column < kWidth; column++) {
             int cell = row * kWidth + column;
             x[(kChannels + 1) * kCells + cell] = -1 + 2 * row / static_cast<float>(kHeight - 1);
             x[(kChannels + 2) * kCells + cell] = -1 + 2 * column / static_cast<float>(kWidth - 1);
             for (int i = 0; i < kGlobals + 4; i++) x[(kChannels + 3 + i) * kCells + cell] = flat[i];
+            x[(kPlanes - 4) * kCells + cell] = features[kFeatureBytes + cell] / 255.0f;
+            x[(kPlanes - 3) * kCells + cell] = spawn_size;
+            x[(kPlanes - 2) * kCells + cell] = wave_clock;
+            x[(kPlanes - 1) * kCells + cell] = map_empty;
         }
     }
 
     const float* w = weights_.data();
     float* y = b_.data();
-    convolve(x, kPlanes, w, channels_, 1, y);
-    w += channels_ * kPlanes * 9 + channels_;
     int size = channels_ * kCells;
-    for (int i = 0; i < size; i++) y[i] = std::max(0.0f, y[i]);
+    if (depthwise_) {
+        std::memset(y, 0, size * sizeof(float));
+        for (int o = 0; o < channels_; o++) {
+            for (int i = 0; i < kPlanes; i++) {
+                float weight = w[o * kPlanes + i];
+                for (int cell = 0; cell < kCells; cell++) y[o * kCells + cell] += weight * x[i * kCells + cell];
+            }
+            float bias = w[channels_ * kPlanes + o];
+            for (int cell = 0; cell < kCells; cell++) y[o * kCells + cell] += bias;
+        }
+        w += channels_ * kPlanes + channels_;
+    } else {
+        convolve(x, kPlanes, w, channels_, 1, y);
+        w += channels_ * kPlanes * 9 + channels_;
+    }
+    relu(y, size);
     std::swap(x, y);  // x holds the current activations from here on.
 
+    std::vector<float> spare;
+    if (depthwise_) spare.resize(size);
     for (int block = 0; block < kBlocks; block++) {
+        if (depthwise_) {
+            std::memset(y, 0, size * sizeof(float));
+            for (int c = 0; c < channels_; c++) {
+                convolve_pair(x + c * kCells, w + c * 9, kDilations[block], y + c * kCells);
+                float bias = w[channels_ * 9 + c];
+                for (int cell = 0; cell < kCells; cell++) y[c * kCells + cell] += bias;
+            }
+            w += channels_ * 9 + channels_;
+            relu(y, size);
+            std::memset(spare.data(), 0, size * sizeof(float));
+            mix_channels(y, w, channels_, spare.data());
+            w += channels_ * channels_ + channels_;
+            relu(spare.data(), size);
+            for (int i = 0; i < size; i++) x[i] += spare[i];
+            continue;
+        }
         convolve(x, channels_, w, channels_, kDilations[block], y);
         w += channels_ * channels_ * 9 + channels_;
-        for (int i = 0; i < size; i++) x[i] += std::max(0.0f, y[i]);
+        relu(y, size);
+        for (int i = 0; i < size; i++) x[i] += y[i];
     }
 
     const float* tile_weights = w;

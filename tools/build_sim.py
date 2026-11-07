@@ -14,7 +14,7 @@ SIM = ROOT / "sim"
 BUILD = ROOT / "build"
 
 ENGINE_SOURCES = ["rng.cpp", "terrain.cpp", "game.cpp", "agent.cpp", "features.cpp", "value_net.cpp", "policy_net.cpp"]
-PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim_search": "search_main.cpp", "sim_live": "live_main.cpp", "sim_datagen": "datagen_main.cpp", "sim_policygen": "policygen_main.cpp", "sim_nettest": "nettest_main.cpp", "sim_policytest": "policytest_main.cpp"}
+PROGRAMS = {"sim_replay": "replay_main.cpp", "sim_bench": "bench_main.cpp", "sim_search": "search_main.cpp", "sim_live": "live_main.cpp", "sim_datagen": "datagen_main.cpp", "sim_policygen": "policygen_main.cpp", "sim_nettest": "nettest_main.cpp", "sim_policytest": "policytest_main.cpp", "sim_pocket": "pocket_main.cpp", "sim_carve": "carve_main.cpp"}
 
 # -ffp-contract=off keeps floating-point results identical to the JS engine's.
 FLAGS = ["-std=c++20", "-O2", "-DNDEBUG", "-ffp-contract=off", "-fno-sanitize=undefined", "-Wno-nullability-completeness"]
@@ -34,6 +34,8 @@ def compile_program(name: str, main_source: str, target: str | None = None, suff
 
 def compile_library(output: Path, target: str | None = None) -> None:
     command = [sys.executable, "-m", "ziglang", "c++", *FLAGS, "-shared", "-fPIC"]
+    if target == LINUX_TARGET:
+        command.append("-march=x86_64_v3")  # The server's Xeon has it, and rich/dev measured more search per tick.
     if target:
         command += ["-target", target]
     command += ["-o", str(output), *(str(SIM / source) for source in [*ENGINE_SOURCES, "capi.cpp"])]
