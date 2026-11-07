@@ -1,0 +1,193 @@
+150,484 parameters
+iter 2306  0.02h  12,218 samples/s  games 785  score 7,109  policy 0.0007  value 0.055  entropy 0.23  clip 0.06  scale 22.7  kills 1:131060 2:29831 3:5490 4:894 5:207 6:69 7:22 8:11 9:3 10:1
+iter 2313  0.04h  13,384 samples/s  games 1703  score 24,756  policy 0.0009  value 0.059  entropy 0.22  clip 0.07  scale 22.8  kills 1:180709 2:40783 3:6369 4:715 5:152 6:48 7:27 8:10 9:1
+iter 2320  0.05h  13,778 samples/s  games 2620  score 45,380  policy 0.0002  value 0.053  entropy 0.22  clip 0.06  scale 22.8  kills 1:184862 2:42565 3:6697 4:700 5:160 6:65 7:28 8:5 9:1 10:1
+iter 2327  0.07h  13,975 samples/s  games 3538  score 45,293  policy 0.0004  value 0.060  entropy 0.23  clip 0.06  scale 22.9  kills 1:186614 2:42047 3:6698 4:754 5:152 6:66 7:30 8:11 9:3 10:1
+iter 2334  0.09h  14,093 samples/s  games 4456  score 45,218  policy 0.0003  value 0.048  entropy 0.22  clip 0.06  scale 22.9  kills 1:187331 2:41817 3:6706 4:754 5:169 6:57 7:24 8:9 9:1
+iter 2341  0.11h  14,172 samples/s  games 5373  score 45,617  policy 0.0012  value 0.061  entropy 0.22  clip 0.07  scale 22.9  kills 1:187471 2:41545 3:6782 4:741 5:166 6:73 7:32 8:11 9:6 10:1
+iter 2348  0.12h  14,228 samples/s  games 6290  score 45,494  policy 0.0008  value 0.040  entropy 0.21  clip 0.06  scale 23.0  kills 1:186336 2:42169 3:6877 4:722 5:171 6:77 7:18 8:4 9:2
+eval 2350  {'greedy': 45882.4921875, 'greedy_best': 68481, 'sampled': 45359.0390625, 'sampled_best': 70862}
+iter 2355  0.14h  14,123 samples/s  games 7208  score 45,692  policy 0.0023  value 0.054  entropy 0.20  clip 0.07  scale 23.0  kills 1:186582 2:42029 3:7070 4:747 5:149 6:57 7:36 8:6
+iter 2362  0.16h  14,170 samples/s  games 8125  score 45,263  policy 0.0004  value 0.052  entropy 0.21  clip 0.06  scale 23.1  kills 1:187517 2:41504 3:6941 4:733 5:172 6:53 7:32 8:5 9:5
+iter 2369  0.18h  14,208 samples/s  games 9043  score 45,890  policy 0.0009  value 0.056  entropy 0.21  clip 0.07  scale 23.1  kills 1:188632 2:40877 3:6811 4:763 5:162 6:66 7:30 8:10 9:2
+iter 2376  0.19h  14,239 samples/s  games 9960  score 44,789  policy 0.0001  value 0.065  entropy 0.21  clip 0.06  scale 23.1  kills 1:188534 2:40723 3:6622 4:763 5:171 6:70 7:20 8:8 9:2 10:1
+iter 2383  0.21h  14,265 samples/s  games 10878  score 44,798  policy 0.0015  value 0.062  entropy 0.21  clip 0.07  scale 23.2  kills 1:188952 2:40527 3:6688 4:701 5:170 6:62 7:30 8:5 9:6 10:1
+iter 2390  0.23h  14,287 samples/s  games 11796  score 44,739  policy 0.0004  value 0.056  entropy 0.20  clip 0.06  scale 23.2  kills 1:189067 2:40648 3:6759 4:736 5:168 6:60 7:35 8:11 9:3
+iter 2397  0.25h  14,306 samples/s  games 12713  score 45,435  policy 0.0003  value 0.071  entropy 0.21  clip 0.05  scale 23.3  kills 1:187469 2:41557 3:6848 4:788 5:162 6:67 7:35 8:14 9:5 10:1
+eval 2400  {'greedy': 45506.4375, 'greedy_best': 65772, 'sampled': 45306.5625, 'sampled_best': 65264}
+iter 2404  0.27h  14,245 samples/s  games 13631  score 45,350  policy 0.0006  value 0.066  entropy 0.21  clip 0.06  scale 23.4  kills 1:186751 2:41557 3:7077 4:803 5:194 6:82 7:35 8:12 9:2
+iter 2411  0.28h  14,264 samples/s  games 14547  score 45,358  policy 0.0006  value 0.052  entropy 0.21  clip 0.06  scale 23.4  kills 1:187407 2:41322 3:6911 4:756 5:175 6:65 7:26 8:8 9:3 10:1
+iter 2418  0.30h  14,281 samples/s  games 15465  score 45,371  policy 0.0014  value 0.051  entropy 0.21  clip 0.07  scale 23.5  kills 1:187181 2:40994 3:6870 4:779 5:153 6:60 7:29 8:8 9:1
+iter 2425  0.32h  14,295 samples/s  games 16384  score 45,073  policy 0.0003  value 0.051  entropy 0.21  clip 0.06  scale 23.6  kills 1:184766 2:42319 3:6984 4:778 5:180 6:67 7:32 8:9 9:1 10:2
+iter 2432  0.34h  14,309 samples/s  games 17301  score 45,457  policy 0.0003  value 0.048  entropy 0.22  clip 0.06  scale 23.7  kills 1:182994 2:43101 3:7146 4:769 5:167 6:60 7:23 8:10 9:2
+iter 2439  0.35h  14,321 samples/s  games 18218  score 45,422  policy 0.0005  value 0.055  entropy 0.22  clip 0.05  scale 23.7  kills 1:183520 2:42809 3:7163 4:774 5:190 6:74 7:28 8:7 9:2
+iter 2446  0.37h  14,332 samples/s  games 19136  score 45,524  policy 0.0006  value 0.046  entropy 0.22  clip 0.06  scale 23.7  kills 1:183670 2:42304 3:7015 4:814 5:166 6:60 7:23 8:8 9:6
+eval 2450  {'greedy': 45606.421875, 'greedy_best': 76041, 'sampled': 45789.1171875, 'sampled_best': 82265}
+iter 2453  0.39h  14,289 samples/s  games 20053  score 45,782  policy 0.0003  value 0.066  entropy 0.23  clip 0.06  scale 23.7  kills 1:183163 2:42320 3:6985 4:799 5:196 6:74 7:33 8:13 9:3 10:1
+iter 2460  0.41h  14,300 samples/s  games 20971  score 45,056  policy -0.0001  value 0.055  entropy 0.24  clip 0.06  scale 23.7  kills 1:182848 2:42245 3:6977 4:776 5:183 6:61 7:18 8:7 9:3
+iter 2467  0.42h  14,310 samples/s  games 21888  score 45,328  policy -0.0001  value 0.050  entropy 0.23  clip 0.06  scale 23.7  kills 1:184054 2:41880 3:6926 4:788 5:199 6:68 7:25 8:8 9:3
+iter 2474  0.44h  14,319 samples/s  games 22804  score 44,948  policy 0.0002  value 0.058  entropy 0.23  clip 0.06  scale 23.7  kills 1:185052 2:41733 3:6796 4:768 5:203 6:67 7:23 8:10 9:3 10:1
+iter 2481  0.46h  14,327 samples/s  games 23723  score 45,211  policy 0.0005  value 0.055  entropy 0.22  clip 0.06  scale 23.8  kills 1:185785 2:41582 3:6870 4:819 5:173 6:79 7:28 8:12 9:2 10:1
+iter 2488  0.48h  14,336 samples/s  games 24640  score 45,495  policy 0.0003  value 0.046  entropy 0.22  clip 0.06  scale 23.8  kills 1:184832 2:41937 3:6951 4:798 5:168 6:61 7:18 8:15 9:1
+iter 2495  0.49h  14,343 samples/s  games 25558  score 45,349  policy 0.0003  value 0.061  entropy 0.21  clip 0.06  scale 23.8  kills 1:184349 2:42104 3:6707 4:736 5:169 6:65 7:30 8:11 9:4
+eval 2500  {'greedy': 45293.078125, 'greedy_best': 66942, 'sampled': 45050.296875, 'sampled_best': 64518}
+iter 2502  0.51h  14,311 samples/s  games 26476  score 45,047  policy 0.0008  value 0.051  entropy 0.21  clip 0.07  scale 23.8  kills 1:184336 2:41878 3:6889 4:755 5:185 6:71 7:19 8:14 9:1
+iter 2509  0.53h  14,319 samples/s  games 27393  score 45,133  policy 0.0008  value 0.045  entropy 0.21  clip 0.07  scale 23.8  kills 1:184403 2:42022 3:7101 4:736 5:167 6:60 7:26 8:16 9:2
+iter 2516  0.55h  14,326 samples/s  games 28311  score 45,303  policy 0.0003  value 0.056  entropy 0.21  clip 0.06  scale 23.8  kills 1:185790 2:41862 3:6958 4:810 5:178 6:72 7:18 8:10 9:3
+iter 2523  0.57h  14,333 samples/s  games 29228  score 45,344  policy 0.0009  value 0.051  entropy 0.21  clip 0.07  scale 23.8  kills 1:184684 2:42233 3:6997 4:750 5:173 6:66 7:20 8:4 9:4
+iter 2530  0.58h  14,340 samples/s  games 30145  score 45,172  policy -0.0001  value 0.056  entropy 0.21  clip 0.06  scale 23.9  kills 1:184881 2:42243 3:7096 4:794 5:182 6:67 7:19 8:13 9:2
+iter 2537  0.60h  14,346 samples/s  games 31063  score 45,288  policy 0.0012  value 0.055  entropy 0.21  clip 0.06  scale 23.9  kills 1:185564 2:42044 3:7212 4:790 5:179 6:76 7:32 8:12 9:3 10:1
+iter 2544  0.62h  14,352 samples/s  games 31981  score 46,179  policy 0.0017  value 0.043  entropy 0.20  clip 0.07  scale 24.0  kills 1:184650 2:41985 3:7338 4:843 5:168 6:68 7:29 8:13 9:6
+eval 2550  {'greedy': 45703.9296875, 'greedy_best': 74629, 'sampled': 45129.875, 'sampled_best': 68061}
+iter 2551  0.64h  14,325 samples/s  games 32897  score 45,396  policy -0.0002  value 0.057  entropy 0.20  clip 0.06  scale 24.0  kills 1:183351 2:43014 3:7392 4:898 5:200 6:67 7:35 8:8 9:3
+iter 2558  0.66h  14,331 samples/s  games 33816  score 46,010  policy 0.0016  value 0.062  entropy 0.20  clip 0.07  scale 24.0  kills 1:182047 2:43280 3:7362 4:850 5:183 6:68 7:26 8:13 9:1
+iter 2565  0.67h  14,337 samples/s  games 34733  score 45,552  policy 0.0003  value 0.045  entropy 0.19  clip 0.06  scale 24.1  kills 1:181077 2:43503 3:7420 4:869 5:202 6:60 7:34 8:11 9:2
+iter 2572  0.69h  14,342 samples/s  games 35651  score 45,915  policy 0.0010  value 0.055  entropy 0.20  clip 0.06  scale 24.1  kills 1:181062 2:43538 3:7546 4:843 5:150 6:72 7:25 8:15 9:1
+iter 2579  0.71h  14,347 samples/s  games 36568  score 45,491  policy 0.0011  value 0.051  entropy 0.20  clip 0.06  scale 24.1  kills 1:179715 2:43870 3:7577 4:817 5:158 6:51 7:36 8:10 9:2
+iter 2586  0.73h  14,352 samples/s  games 37486  score 45,421  policy 0.0168  value 0.054  entropy 0.20  clip 0.06  scale 24.2  kills 1:178493 2:44547 3:7551 4:857 5:190 6:76 7:40 8:10 9:4
+iter 2593  0.74h  14,357 samples/s  games 38403  score 46,304  policy 0.0012  value 0.054  entropy 0.20  clip 0.07  scale 24.2  kills 1:179984 2:43997 3:7802 4:832 5:180 6:81 7:32 8:10 9:2
+iter 2600  0.76h  14,362 samples/s  games 39321  score 45,904  policy 0.0011  value 0.054  entropy 0.20  clip 0.06  scale 24.2  kills 1:179978 2:44160 3:7636 4:858 5:167 6:64 7:28 8:11 9:1 10:2
+eval 2600  {'greedy': 46564.09375, 'greedy_best': 66181, 'sampled': 46409.6953125, 'sampled_best': 72577}
+iter 2607  0.78h  14,340 samples/s  games 40238  score 45,866  policy 0.0006  value 0.045  entropy 0.20  clip 0.06  scale 24.3  kills 1:180823 2:43710 3:7615 4:859 5:186 6:81 7:25 8:12 9:8 10:1
+iter 2614  0.80h  14,344 samples/s  games 41155  score 45,563  policy 0.0009  value 0.048  entropy 0.20  clip 0.06  scale 24.3  kills 1:180899 2:43424 3:7587 4:843 5:197 6:56 7:24 8:13 9:3 10:1
+iter 2621  0.81h  14,349 samples/s  games 42073  score 45,709  policy 0.0008  value 0.044  entropy 0.20  clip 0.06  scale 24.4  kills 1:182318 2:43069 3:7631 4:889 5:189 6:72 7:22 8:9 9:1
+iter 2628  0.83h  14,353 samples/s  games 42991  score 45,585  policy 0.0004  value 0.049  entropy 0.20  clip 0.06  scale 24.4  kills 1:182017 2:43424 3:7470 4:881 5:177 6:74 7:34 8:9
+iter 2635  0.85h  14,357 samples/s  games 43909  score 45,870  policy 0.0001  value 0.046  entropy 0.20  clip 0.05  scale 24.4  kills 1:182446 2:42731 3:7379 4:791 5:188 6:62 7:29 8:16 9:1
+iter 2642  0.87h  14,361 samples/s  games 44826  score 45,911  policy 0.0006  value 0.056  entropy 0.21  clip 0.06  scale 24.4  kills 1:184081 2:42801 3:7274 4:843 5:192 6:83 7:26 8:7 9:11
+iter 2649  0.88h  14,365 samples/s  games 45743  score 45,922  policy 0.0008  value 0.057  entropy 0.20  clip 0.07  scale 24.3  kills 1:185946 2:41793 3:7113 4:775 5:174 6:68 7:42 8:9 9:2 10:1
+eval 2650  {'greedy': 45401.4765625, 'greedy_best': 63194, 'sampled': 46718.4453125, 'sampled_best': 68727}
+iter 2656  0.90h  14,346 samples/s  games 46661  score 45,187  policy -0.0000  value 0.048  entropy 0.20  clip 0.05  scale 24.4  kills 1:186662 2:41844 3:7110 4:756 5:179 6:68 7:28 8:11 9:5
+iter 2663  0.92h  14,350 samples/s  games 47578  score 46,086  policy 0.0002  value 0.076  entropy 0.21  clip 0.06  scale 24.4  kills 1:184585 2:42860 3:7160 4:845 5:163 6:74 7:34 8:13 9:1
+iter 2670  0.94h  14,353 samples/s  games 48496  score 45,833  policy 0.0009  value 0.056  entropy 0.21  clip 0.07  scale 24.4  kills 1:183483 2:43264 3:7313 4:798 5:162 6:75 7:32 8:12 9:5
+iter 2677  0.96h  14,357 samples/s  games 49412  score 45,908  policy 0.0007  value 0.050  entropy 0.20  clip 0.06  scale 24.4  kills 1:181356 2:43185 3:7433 4:767 5:175 6:68 7:21 8:6 9:5
+iter 2684  0.97h  14,361 samples/s  games 50330  score 46,012  policy 0.0004  value 0.066  entropy 0.20  clip 0.06  scale 24.3  kills 1:180354 2:44102 3:7391 4:812 5:194 6:76 7:34 8:6 9:1 10:1
+iter 2691  0.99h  14,364 samples/s  games 51248  score 45,691  policy 0.0014  value 0.045  entropy 0.20  clip 0.07  scale 24.3  kills 1:181376 2:44007 3:7285 4:766 5:186 6:54 7:17 8:12 9:2 10:1
+iter 2698  1.01h  14,367 samples/s  games 52166  score 45,844  policy 0.0010  value 0.057  entropy 0.21  clip 0.06  scale 24.2  kills 1:182500 2:43758 3:7145 4:771 5:194 6:60 7:24 8:5 9:3
+eval 2700  {'greedy': 45524.109375, 'greedy_best': 63776, 'sampled': 45443.3515625, 'sampled_best': 68337}
+iter 2705  1.03h  14,350 samples/s  games 53083  score 45,837  policy 0.0006  value 0.054  entropy 0.21  clip 0.06  scale 24.2  kills 1:184435 2:43103 3:6969 4:771 5:183 6:77 7:26 8:12
+iter 2712  1.05h  14,354 samples/s  games 54001  score 45,823  policy 0.0004  value 0.057  entropy 0.20  clip 0.05  scale 24.2  kills 1:185417 2:42407 3:7078 4:800 5:182 6:60 7:35 8:10 9:3
+iter 2719  1.06h  14,357 samples/s  games 54918  score 45,809  policy 0.0020  value 0.062  entropy 0.20  clip 0.07  scale 24.2  kills 1:184786 2:43337 3:7099 4:843 5:183 6:64 7:30 8:11 9:5 10:3
+iter 2726  1.08h  14,360 samples/s  games 55836  score 46,214  policy 0.0007  value 0.061  entropy 0.20  clip 0.06  scale 24.3  kills 1:185668 2:42233 3:7175 4:788 5:175 6:82 7:33 8:12 9:2 10:1
+iter 2733  1.10h  14,363 samples/s  games 56753  score 45,895  policy 0.0005  value 0.046  entropy 0.20  clip 0.06  scale 24.3  kills 1:186038 2:42045 3:7007 4:785 5:182 6:65 7:29 8:10 10:1
+iter 2740  1.12h  14,366 samples/s  games 57670  score 46,057  policy 0.0004  value 0.070  entropy 0.20  clip 0.06  scale 24.4  kills 1:185021 2:42655 3:7356 4:885 5:244 6:112 7:35 8:10 9:4 10:2
+iter 2747  1.13h  14,369 samples/s  games 58589  score 45,897  policy 0.0005  value 0.069  entropy 0.20  clip 0.06  scale 24.4  kills 1:184656 2:42948 3:7203 4:840 5:185 6:61 7:35 8:17 9:3
+eval 2750  {'greedy': 46692.59375, 'greedy_best': 73222, 'sampled': 46239.9375, 'sampled_best': 72317}
+iter 2754  1.15h  14,354 samples/s  games 59505  score 46,277  policy 0.0005  value 0.054  entropy 0.20  clip 0.06  scale 24.4  kills 1:185545 2:42541 3:7189 4:793 5:209 6:83 7:26 8:10 9:4 10:1
+iter 2761  1.17h  14,357 samples/s  games 60423  score 46,071  policy 0.0003  value 0.063  entropy 0.20  clip 0.06  scale 24.4  kills 1:186695 2:42279 3:7172 4:744 5:196 6:89 7:42 8:9 9:4
+iter 2768  1.19h  14,360 samples/s  games 61341  score 46,101  policy 0.0010  value 0.050  entropy 0.21  clip 0.06  scale 24.4  kills 1:186586 2:42397 3:7166 4:849 5:206 6:78 7:33 8:17 9:7
+iter 2775  1.20h  14,363 samples/s  games 62258  score 46,049  policy 0.0005  value 0.049  entropy 0.20  clip 0.05  scale 24.4  kills 1:185881 2:42453 3:7082 4:815 5:165 6:61 7:35 8:9 9:4 10:1
+iter 2782  1.22h  14,366 samples/s  games 63176  score 45,954  policy 0.0001  value 0.041  entropy 0.20  clip 0.06  scale 24.4  kills 1:184809 2:42790 3:7168 4:822 5:187 6:73 7:26 8:9 9:3
+iter 2789  1.24h  14,368 samples/s  games 64094  score 46,221  policy 0.0006  value 0.050  entropy 0.21  clip 0.06  scale 24.4  kills 1:184352 2:42821 3:7407 4:775 5:173 6:77 7:25 8:12 9:1 10:1
+iter 2796  1.26h  14,371 samples/s  games 65011  score 45,699  policy 0.0002  value 0.051  entropy 0.20  clip 0.06  scale 24.4  kills 1:184041 2:43229 3:7322 4:819 5:178 6:76 7:30 8:7 9:4
+eval 2800  {'greedy': 47126.7578125, 'greedy_best': 74161, 'sampled': 45373.0859375, 'sampled_best': 61128}
+iter 2803  1.28h  14,357 samples/s  games 65928  score 46,129  policy 0.0004  value 0.054  entropy 0.20  clip 0.06  scale 24.4  kills 1:184871 2:43535 3:7374 4:816 5:196 6:70 7:34 8:11 9:3 10:1
+iter 2810  1.29h  14,360 samples/s  games 66846  score 46,102  policy 0.0006  value 0.047  entropy 0.20  clip 0.06  scale 24.4  kills 1:184764 2:42760 3:7296 4:816 5:173 6:73 7:24 8:11 9:4 10:1
+iter 2817  1.31h  14,363 samples/s  games 67762  score 46,018  policy 0.0010  value 0.053  entropy 0.19  clip 0.06  scale 24.4  kills 1:184746 2:43091 3:7306 4:839 5:195 6:71 7:33 8:6 9:4 10:1
+iter 2824  1.33h  14,365 samples/s  games 68681  score 45,679  policy 0.0019  value 0.059  entropy 0.20  clip 0.07  scale 24.4  kills 1:184368 2:43478 3:7355 4:850 5:172 6:59 7:28 8:16 9:6
+iter 2831  1.35h  14,368 samples/s  games 69598  score 46,295  policy 0.0000  value 0.044  entropy 0.21  clip 0.05  scale 24.4  kills 1:184974 2:42877 3:7121 4:771 5:174 6:92 7:33 8:12 9:1 10:1
+iter 2838  1.36h  14,370 samples/s  games 70516  score 45,944  policy 0.0006  value 0.051  entropy 0.20  clip 0.06  scale 24.4  kills 1:185666 2:43008 3:7218 4:799 5:181 6:82 7:26 8:7 9:9 10:4
+iter 2845  1.38h  14,372 samples/s  games 71434  score 45,789  policy 0.0004  value 0.056  entropy 0.20  clip 0.06  scale 24.4  kills 1:185339 2:42862 3:7258 4:837 5:191 6:82 7:26 8:9 9:2
+eval 2850  {'greedy': 46728.5078125, 'greedy_best': 64630, 'sampled': 45809.25, 'sampled_best': 66541}
+iter 2852  1.40h  14,360 samples/s  games 72351  score 46,502  policy 0.0001  value 0.052  entropy 0.20  clip 0.06  scale 24.4  kills 1:184517 2:43226 3:7341 4:822 5:182 6:85 7:17 8:12 9:1 10:1
+iter 2859  1.42h  14,362 samples/s  games 73268  score 46,157  policy 0.0002  value 0.058  entropy 0.20  clip 0.06  scale 24.4  kills 1:184666 2:43449 3:7337 4:858 5:199 6:86 7:40 8:12 9:5 10:1
+iter 2866  1.43h  14,364 samples/s  games 74186  score 46,363  policy 0.0004  value 0.057  entropy 0.20  clip 0.06  scale 24.5  kills 1:183803 2:43570 3:7246 4:828 5:207 6:81 7:44 8:16 9:7
+iter 2873  1.45h  14,367 samples/s  games 75103  score 46,472  policy 0.0001  value 0.057  entropy 0.20  clip 0.05  scale 24.5  kills 1:182282 2:43871 3:7446 4:833 5:196 6:76 7:39 8:13 9:2
+iter 2880  1.47h  14,369 samples/s  games 76020  score 46,210  policy 0.0002  value 0.053  entropy 0.20  clip 0.06  scale 24.5  kills 1:182174 2:44080 3:7492 4:780 5:180 6:74 7:26 8:14 9:6 10:1
+iter 2887  1.49h  14,371 samples/s  games 76938  score 46,464  policy 0.0004  value 0.044  entropy 0.19  clip 0.06  scale 24.5  kills 1:182568 2:44117 3:7618 4:798 5:193 6:79 7:29 8:7 9:6 10:2
+iter 2894  1.50h  14,373 samples/s  games 77855  score 46,026  policy 0.0013  value 0.048  entropy 0.19  clip 0.06  scale 24.6  kills 1:183326 2:43912 3:7495 4:821 5:185 6:86 7:22 8:14 9:5 10:1
+eval 2900  {'greedy': 46943.6953125, 'greedy_best': 75154, 'sampled': 46276.65625, 'sampled_best': 74146}
+iter 2901  1.52h  14,362 samples/s  games 78774  score 46,274  policy 0.0000  value 0.056  entropy 0.19  clip 0.06  scale 24.6  kills 1:183339 2:43744 3:7526 4:811 5:185 6:82 7:27 8:8 9:2
+iter 2908  1.54h  14,364 samples/s  games 79691  score 46,693  policy 0.0004  value 0.054  entropy 0.19  clip 0.06  scale 24.7  kills 1:183707 2:43734 3:7499 4:812 5:208 6:69 7:29 8:17 9:2 10:1
+iter 2915  1.56h  14,366 samples/s  games 80608  score 46,791  policy 0.0000  value 0.048  entropy 0.19  clip 0.05  scale 24.7  kills 1:183263 2:43762 3:7338 4:798 5:174 6:62 7:25 8:14 9:4 10:1
+iter 2922  1.58h  14,368 samples/s  games 81526  score 45,870  policy 0.0007  value 0.039  entropy 0.20  clip 0.06  scale 24.6  kills 1:182766 2:43503 3:7163 4:833 5:185 6:78 7:32 8:11 9:3
+iter 2929  1.59h  14,370 samples/s  games 82443  score 46,002  policy 0.0007  value 0.048  entropy 0.20  clip 0.06  scale 24.6  kills 1:182030 2:44150 3:7237 4:825 5:170 6:73 7:35 8:12 9:3
+iter 2936  1.61h  14,372 samples/s  games 83361  score 45,934  policy 0.0001  value 0.040  entropy 0.20  clip 0.06  scale 24.6  kills 1:182878 2:43932 3:7338 4:848 5:182 6:66 7:22 8:12 9:3
+iter 2943  1.63h  14,374 samples/s  games 84278  score 46,276  policy 0.0010  value 0.047  entropy 0.20  clip 0.06  scale 24.6  kills 1:183409 2:44042 3:7205 4:799 5:167 6:67 7:27 8:16 9:4
+iter 2950  1.65h  14,376 samples/s  games 85196  score 46,206  policy 0.0008  value 0.051  entropy 0.19  clip 0.06  scale 24.6  kills 1:182945 2:43824 3:7196 4:829 5:176 6:80 7:28 8:12 9:3 10:1
+eval 2950  {'greedy': 47053.03125, 'greedy_best': 62658, 'sampled': 45479.9375, 'sampled_best': 79455}
+iter 2957  1.67h  14,365 samples/s  games 86113  score 46,202  policy 0.0007  value 0.044  entropy 0.20  clip 0.06  scale 24.6  kills 1:183000 2:44459 3:7303 4:754 5:155 6:67 7:26 8:6 9:4
+iter 2964  1.68h  14,367 samples/s  games 87031  score 46,096  policy 0.0003  value 0.060  entropy 0.20  clip 0.06  scale 24.6  kills 1:183487 2:43931 3:7376 4:817 5:190 6:67 7:38 8:19 9:5 10:2
+iter 2971  1.70h  14,369 samples/s  games 87948  score 46,531  policy 0.0005  value 0.050  entropy 0.20  clip 0.06  scale 24.6  kills 1:183821 2:43693 3:7263 4:838 5:177 6:60 7:31 8:12 9:4
+iter 2978  1.72h  14,371 samples/s  games 88866  score 46,549  policy 0.0005  value 0.068  entropy 0.20  clip 0.06  scale 24.7  kills 1:185301 2:43325 3:7114 4:779 5:195 6:75 7:29 8:15 9:6 10:3
+iter 2985  1.74h  14,373 samples/s  games 89783  score 46,487  policy 0.0003  value 0.063  entropy 0.20  clip 0.05  scale 24.7  kills 1:184374 2:43334 3:7305 4:873 5:194 6:70 7:35 8:15 9:3 10:3
+iter 2992  1.75h  14,374 samples/s  games 90701  score 46,061  policy 0.0013  value 0.045  entropy 0.20  clip 0.07  scale 24.6  kills 1:183531 2:43788 3:7424 4:806 5:194 6:76 7:23 8:8 9:2
+iter 2999  1.77h  14,376 samples/s  games 91619  score 46,589  policy 0.0010  value 0.064  entropy 0.21  clip 0.06  scale 24.7  kills 1:181028 2:44404 3:7499 4:830 5:196 6:84 7:34 8:17 9:6 10:2
+eval 3000  {'greedy': 46584.375, 'greedy_best': 75338, 'sampled': 47440.4140625, 'sampled_best': 78592}
+iter 3006  1.79h  14,366 samples/s  games 92536  score 45,909  policy 0.0005  value 0.046  entropy 0.20  clip 0.06  scale 24.6  kills 1:181522 2:44489 3:7270 4:831 5:167 6:65 7:40 8:10 9:2
+iter 3013  1.81h  14,368 samples/s  games 93454  score 46,098  policy 0.0010  value 0.050  entropy 0.20  clip 0.06  scale 24.7  kills 1:182603 2:43761 3:7236 4:828 5:182 6:71 7:29 8:9 9:4 10:1
+iter 3020  1.82h  14,370 samples/s  games 94370  score 46,271  policy 0.0007  value 0.049  entropy 0.21  clip 0.06  scale 24.6  kills 1:182353 2:44159 3:7362 4:823 5:165 6:63 7:20 8:6 9:1 10:1
+iter 3027  1.84h  14,372 samples/s  games 95288  score 46,102  policy -0.0002  value 0.052  entropy 0.21  clip 0.06  scale 24.6  kills 1:181779 2:43825 3:7396 4:824 5:199 6:63 7:23 8:9 9:3
+iter 3034  1.86h  14,373 samples/s  games 96206  score 46,182  policy 0.0007  value 0.050  entropy 0.21  clip 0.06  scale 24.6  kills 1:182061 2:43665 3:7506 4:892 5:183 6:66 7:21 8:6 9:3
+iter 3041  1.88h  14,375 samples/s  games 97123  score 46,006  policy 0.0001  value 0.066  entropy 0.20  clip 0.06  scale 24.6  kills 1:182111 2:43854 3:7506 4:862 5:198 6:76 7:31 8:8 9:4 10:3
+iter 3048  1.89h  14,377 samples/s  games 98041  score 46,459  policy 0.0004  value 0.055  entropy 0.20  clip 0.06  scale 24.6  kills 1:182348 2:43939 3:7704 4:821 5:199 6:71 7:43 8:4 9:7 10:1
+eval 3050  {'greedy': 47165.4609375, 'greedy_best': 71599, 'sampled': 46162.640625, 'sampled_best': 66703}
+iter 3055  1.91h  14,367 samples/s  games 98959  score 46,724  policy 0.0004  value 0.052  entropy 0.20  clip 0.05  scale 24.6  kills 1:182023 2:43920 3:7527 4:820 5:194 6:75 7:37 8:10 9:6 10:1
+iter 3062  1.93h  14,369 samples/s  games 99876  score 46,418  policy 0.0005  value 0.057  entropy 0.20  clip 0.06  scale 24.6  kills 1:182512 2:44282 3:7630 4:903 5:205 6:74 7:25 8:16 9:2 10:1
+iter 3069  1.95h  14,371 samples/s  games 100794  score 46,809  policy 0.0011  value 0.043  entropy 0.21  clip 0.06  scale 24.7  kills 1:179576 2:45193 3:7600 4:872 5:198 6:72 7:37 8:9 9:1
+iter 3076  1.97h  14,372 samples/s  games 101711  score 45,857  policy 0.0007  value 0.064  entropy 0.21  clip 0.07  scale 24.6  kills 1:179130 2:44799 3:7484 4:885 5:186 6:68 7:28 8:17 9:6 10:3
+iter 3083  1.98h  14,374 samples/s  games 102627  score 46,199  policy 0.0006  value 0.060  entropy 0.21  clip 0.06  scale 24.7  kills 1:180977 2:44302 3:7465 4:911 5:187 6:85 7:54 8:11 9:6 10:1
+iter 3090  2.00h  14,375 samples/s  games 103546  score 46,662  policy -0.0001  value 0.060  entropy 0.21  clip 0.06  scale 24.7  kills 1:180736 2:44335 3:7613 4:857 5:218 6:94 7:30 8:18 9:6
+iter 3097  2.02h  14,377 samples/s  games 104462  score 46,805  policy 0.0006  value 0.050  entropy 0.22  clip 0.06  scale 24.7  kills 1:181040 2:44220 3:7355 4:809 5:194 6:70 7:29 8:7 9:4
+eval 3100  {'greedy': 46249.265625, 'greedy_best': 74927, 'sampled': 46753.6953125, 'sampled_best': 81916}
+iter 3104  2.04h  14,368 samples/s  games 105381  score 46,629  policy 0.0009  value 0.055  entropy 0.22  clip 0.06  scale 24.7  kills 1:181081 2:44669 3:7373 4:811 5:204 6:78 7:32 8:9 9:4 10:1
+iter 3111  2.05h  14,370 samples/s  games 106299  score 45,770  policy 0.0003  value 0.064  entropy 0.22  clip 0.06  scale 24.7  kills 1:181037 2:44444 3:7454 4:826 5:222 6:77 7:24 8:11 9:3 10:2
+iter 3118  2.07h  14,371 samples/s  games 107216  score 46,441  policy 0.0007  value 0.055  entropy 0.21  clip 0.06  scale 24.7  kills 1:182396 2:44178 3:7453 4:907 5:200 6:66 7:29 8:13 9:4
+iter 3125  2.09h  14,373 samples/s  games 108134  score 46,626  policy 0.0001  value 0.071  entropy 0.22  clip 0.05  scale 24.7  kills 1:182648 2:43720 3:7496 4:863 5:186 6:75 7:26 8:13 9:4
+iter 3132  2.11h  14,374 samples/s  games 109051  score 46,145  policy -0.0001  value 0.042  entropy 0.21  clip 0.06  scale 24.7  kills 1:182735 2:43681 3:7334 4:846 5:181 6:74 7:35 8:14 9:5
+iter 3139  2.12h  14,376 samples/s  games 109968  score 46,914  policy 0.0006  value 0.057  entropy 0.22  clip 0.06  scale 24.6  kills 1:181734 2:44126 3:7503 4:829 5:189 6:80 7:38 8:13 9:7 10:2
+iter 3146  2.14h  14,377 samples/s  games 110885  score 46,244  policy 0.0003  value 0.049  entropy 0.22  clip 0.05  scale 24.6  kills 1:182123 2:44076 3:7539 4:880 5:189 6:92 7:45 8:7 9:3
+eval 3150  {'greedy': 47114.59375, 'greedy_best': 79063, 'sampled': 47215.8203125, 'sampled_best': 75486}
+iter 3153  2.16h  14,369 samples/s  games 111804  score 46,149  policy 0.0007  value 0.054  entropy 0.21  clip 0.07  scale 24.6  kills 1:182959 2:43575 3:7379 4:807 5:180 6:63 7:43 8:14 9:4
+iter 3160  2.18h  14,371 samples/s  games 112720  score 46,451  policy 0.0006  value 0.064  entropy 0.20  clip 0.06  scale 24.6  kills 1:182851 2:44261 3:7455 4:830 5:191 6:72 7:35 8:12 9:1
+iter 3167  2.20h  14,372 samples/s  games 113639  score 46,157  policy 0.0004  value 0.054  entropy 0.21  clip 0.06  scale 24.6  kills 1:182849 2:44153 3:7360 4:863 5:192 6:71 7:28 8:11 9:6
+iter 3174  2.21h  14,374 samples/s  games 114556  score 46,235  policy 0.0003  value 0.058  entropy 0.21  clip 0.06  scale 24.6  kills 1:184759 2:43308 3:7372 4:835 5:201 6:74 7:23 8:7 9:4
+iter 3181  2.23h  14,375 samples/s  games 115473  score 46,595  policy 0.0011  value 0.053  entropy 0.20  clip 0.06  scale 24.6  kills 1:186622 2:42442 3:7256 4:827 5:188 6:83 7:29 8:13 9:2
+iter 3188  2.25h  14,376 samples/s  games 116391  score 45,868  policy 0.0022  value 0.044  entropy 0.20  clip 0.06  scale 24.6  kills 1:185693 2:42982 3:7125 4:802 5:206 6:72 7:35 8:16 9:3 10:2
+iter 3195  2.27h  14,378 samples/s  games 117308  score 45,675  policy -0.0000  value 0.042  entropy 0.21  clip 0.05  scale 24.6  kills 1:186322 2:42608 3:7102 4:776 5:182 6:52 7:28 8:14 9:3
+eval 3200  {'greedy': 46375.375, 'greedy_best': 67920, 'sampled': 46326.359375, 'sampled_best': 69160}
+iter 3202  2.29h  14,370 samples/s  games 118226  score 45,783  policy -0.0002  value 0.059  entropy 0.21  clip 0.05  scale 24.5  kills 1:187085 2:42583 3:7082 4:777 5:181 6:64 7:16 8:3 9:7 10:1
+iter 3209  2.30h  14,371 samples/s  games 119144  score 45,520  policy 0.0003  value 0.039  entropy 0.21  clip 0.06  scale 24.5  kills 1:186550 2:42526 3:7245 4:800 5:183 6:81 7:29 8:10 9:4
+iter 3216  2.32h  14,373 samples/s  games 120061  score 46,413  policy 0.0002  value 0.053  entropy 0.20  clip 0.06  scale 24.6  kills 1:185566 2:42789 3:7244 4:872 5:200 6:78 7:38 8:13 9:2
+iter 3223  2.34h  14,374 samples/s  games 120978  score 46,349  policy 0.0010  value 0.045  entropy 0.21  clip 0.06  scale 24.6  kills 1:185061 2:42549 3:7248 4:836 5:168 6:68 7:27 8:14 9:6
+iter 3230  2.36h  14,375 samples/s  games 121896  score 45,957  policy 0.0008  value 0.056  entropy 0.20  clip 0.06  scale 24.6  kills 1:185086 2:42913 3:7302 4:857 5:192 6:76 7:33 8:12 9:3 10:1
+iter 3237  2.37h  14,377 samples/s  games 122813  score 46,120  policy 0.0011  value 0.047  entropy 0.21  clip 0.06  scale 24.7  kills 1:183882 2:43256 3:7556 4:880 5:236 6:72 7:25 8:15 9:5
+iter 3244  2.39h  14,378 samples/s  games 123731  score 46,431  policy 0.0007  value 0.041  entropy 0.21  clip 0.06  scale 24.7  kills 1:182439 2:43854 3:7338 4:855 5:183 6:82 7:22 8:10 9:2 10:1
+eval 3250  {'greedy': 46706.3125, 'greedy_best': 79160, 'sampled': 47024.3359375, 'sampled_best': 74976}
+iter 3251  2.41h  14,371 samples/s  games 124648  score 46,346  policy 0.0000  value 0.042  entropy 0.21  clip 0.06  scale 24.6  kills 1:183377 2:43919 3:7302 4:841 5:166 6:73 7:29 8:11 9:5
+iter 3258  2.43h  14,372 samples/s  games 125566  score 45,891  policy 0.0003  value 0.056  entropy 0.20  clip 0.06  scale 24.6  kills 1:183922 2:43549 3:7460 4:849 5:191 6:86 7:38 8:14 9:1 10:1
+iter 3265  2.44h  14,374 samples/s  games 126484  score 46,162  policy 0.0005  value 0.056  entropy 0.21  clip 0.06  scale 24.6  kills 1:184123 2:43665 3:7539 4:846 5:195 6:75 7:29 8:18 9:2 10:1
+iter 3272  2.46h  14,375 samples/s  games 127401  score 46,727  policy 0.0004  value 0.057  entropy 0.21  clip 0.05  scale 24.6  kills 1:181992 2:44359 3:7435 4:835 5:192 6:87 7:32 8:14 9:4
+iter 3279  2.48h  14,376 samples/s  games 128319  score 46,791  policy 0.0008  value 0.058  entropy 0.20  clip 0.06  scale 24.6  kills 1:182879 2:43903 3:7481 4:857 5:203 6:81 7:32 8:7
+iter 3286  2.50h  14,378 samples/s  games 129235  score 46,903  policy 0.0007  value 0.057  entropy 0.20  clip 0.06  scale 24.6  kills 1:183001 2:43842 3:7411 4:816 5:190 6:74 7:29 8:15 9:3 10:1
+iter 3293  2.51h  14,379 samples/s  games 130153  score 46,331  policy 0.0002  value 0.058  entropy 0.20  clip 0.06  scale 24.6  kills 1:183274 2:43737 3:7725 4:872 5:194 6:66 7:39 8:13 9:3 10:1
+iter 3300  2.53h  14,380 samples/s  games 131072  score 46,508  policy -0.0003  value 0.063  entropy 0.20  clip 0.05  scale 24.6  kills 1:182381 2:44304 3:7357 4:901 5:196 6:71 7:32 8:9 9:3 10:2
+eval 3300  {'greedy': 47513.3515625, 'greedy_best': 66896, 'sampled': 46503.5625, 'sampled_best': 69394}
+iter 3307  2.55h  14,373 samples/s  games 131989  score 46,402  policy 0.0014  value 0.052  entropy 0.20  clip 0.06  scale 24.7  kills 1:180358 2:44617 3:7641 4:864 5:198 6:83 7:41 8:11 9:4
+iter 3314  2.57h  14,375 samples/s  games 132906  score 46,870  policy 0.0005  value 0.058  entropy 0.20  clip 0.06  scale 24.7  kills 1:181115 2:44984 3:7781 4:934 5:194 6:80 7:31 8:14 9:5 10:1
+iter 3321  2.59h  14,376 samples/s  games 133824  score 47,362  policy 0.0000  value 0.048  entropy 0.20  clip 0.05  scale 24.7  kills 1:180527 2:45033 3:7625 4:934 5:186 6:85 7:33 8:12 9:2
+iter 3328  2.60h  14,377 samples/s  games 134741  score 46,652  policy 0.0015  value 0.044  entropy 0.19  clip 0.06  scale 24.8  kills 1:180174 2:44808 3:7937 4:926 5:217 6:73 7:30 8:21 9:3 10:1
+iter 3335  2.62h  14,378 samples/s  games 135659  score 47,065  policy 0.0003  value 0.052  entropy 0.19  clip 0.05  scale 24.8  kills 1:181356 2:44681 3:7890 4:934 5:206 6:58 7:29 8:12 9:3
+iter 3342  2.64h  14,379 samples/s  games 136576  score 47,152  policy 0.0022  value 0.054  entropy 0.19  clip 0.06  scale 24.9  kills 1:183322 2:43472 3:7763 4:869 5:224 6:80 7:34 8:13 9:4
+iter 3349  2.66h  14,381 samples/s  games 137492  score 46,663  policy 0.0010  value 0.055  entropy 0.20  clip 0.06  scale 25.0  kills 1:182788 2:43693 3:7716 4:931 5:210 6:66 7:37 8:12 9:1
+eval 3350  {'greedy': 46297.5, 'greedy_best': 76812, 'sampled': 45838.8515625, 'sampled_best': 63091}
+iter 3356  2.67h  14,374 samples/s  games 138411  score 46,302  policy 0.0006  value 0.047  entropy 0.20  clip 0.06  scale 25.0  kills 1:183869 2:43374 3:7704 4:909 5:184 6:66 7:28 8:13 9:3
+iter 3363  2.69h  14,375 samples/s  games 139328  score 46,278  policy 0.0006  value 0.048  entropy 0.20  clip 0.06  scale 25.0  kills 1:182614 2:43913 3:7786 4:890 5:177 6:91 7:33 8:11 9:3 10:1
+iter 3370  2.71h  14,377 samples/s  games 140246  score 46,511  policy 0.0006  value 0.061  entropy 0.20  clip 0.06  scale 25.0  kills 1:183526 2:43741 3:7846 4:934 5:245 6:82 7:29 8:13 9:1
+iter 3377  2.73h  14,378 samples/s  games 141164  score 46,780  policy 0.0009  value 0.055  entropy 0.19  clip 0.06  scale 25.1  kills 1:181854 2:44071 3:7829 4:890 5:207 6:65 7:26 8:8 9:1
+iter 3384  2.74h  14,379 samples/s  games 142081  score 46,790  policy 0.0001  value 0.055  entropy 0.19  clip 0.05  scale 25.0  kills 1:183077 2:44451 3:7753 4:914 5:197 6:81 7:39 8:11 9:1
+iter 3391  2.76h  14,380 samples/s  games 142999  score 47,048  policy 0.0003  value 0.048  entropy 0.19  clip 0.06  scale 25.0  kills 1:184832 2:43697 3:7740 4:930 5:192 6:67 7:15 8:6 9:6 10:1
+iter 3398  2.78h  14,381 samples/s  games 143916  score 46,368  policy 0.0011  value 0.064  entropy 0.19  clip 0.06  scale 25.0  kills 1:184083 2:44062 3:7858 4:915 5:207 6:79 7:37 8:13 9:1 10:1
+eval 3400  {'greedy': 48131.6484375, 'greedy_best': 72070, 'sampled': 46817.453125, 'sampled_best': 72644}
+iter 3405  2.80h  14,375 samples/s  games 144833  score 47,066  policy 0.0003  value 0.058  entropy 0.19  clip 0.05  scale 25.0  kills 1:184715 2:43966 3:7715 4:889 5:220 6:115 7:36 8:14 9:8
+iter 3412  2.82h  14,376 samples/s  games 145751  score 47,103  policy 0.0002  value 0.065  entropy 0.18  clip 0.05  scale 25.0  kills 1:184708 2:43792 3:7693 4:912 5:228 6:86 7:32 8:14 9:2 10:2
+iter 3419  2.83h  14,377 samples/s  games 146669  score 47,180  policy 0.0011  value 0.055  entropy 0.18  clip 0.06  scale 25.0  kills 1:184624 2:43992 3:7514 4:827 5:197 6:77 7:36 8:12 9:3
+iter 3426  2.85h  14,378 samples/s  games 147585  score 46,670  policy 0.0003  value 0.044  entropy 0.18  clip 0.06  scale 25.0  kills 1:184506 2:43866 3:7451 4:840 5:185 6:58 7:32 8:18 9:3 10:1
+iter 3433  2.87h  14,379 samples/s  games 148504  score 46,600  policy 0.0005  value 0.048  entropy 0.19  clip 0.06  scale 25.0  kills 1:185170 2:43207 3:7591 4:831 5:187 6:77 7:30 8:12 9:1 10:1
+iter 3440  2.89h  14,380 samples/s  games 149421  score 46,819  policy -0.0001  value 0.067  entropy 0.19  clip 0.05  scale 25.0  kills 1:186056 2:43348 3:7752 4:863 5:214 6:75 7:37 8:12 9:4
+iter 3447  2.90h  14,382 samples/s  games 150339  score 46,956  policy 0.0005  value 0.056  entropy 0.19  clip 0.05  scale 24.9  kills 1:186158 2:43522 3:7479 4:851 5:210 6:79 7:41 8:11 9:6
+eval 3450  {'greedy': 46276.7265625, 'greedy_best': 62290, 'sampled': 46582.9296875, 'sampled_best': 64332}
+iter 3454  2.92h  14,376 samples/s  games 151256  score 46,975  policy 0.0006  value 0.044  entropy 0.19  clip 0.06  scale 25.0  kills 1:185724 2:43558 3:7447 4:852 5:180 6:65 7:26 8:10 9:5 10:1
+iter 3461  2.94h  14,377 samples/s  games 152174  score 46,775  policy 0.0004  value 0.059  entropy 0.19  clip 0.06  scale 25.0  kills 1:186455 2:43301 3:7604 4:872 5:195 6:83 7:50 8:11 9:5
+iter 3468  2.96h  14,378 samples/s  games 153091  score 46,681  policy -0.0004  value 0.053  entropy 0.19  clip 0.05  scale 25.0  kills 1:186248 2:43395 3:7655 4:935 5:189 6:86 7:28 8:9 9:2 10:1
+iter 3475  2.98h  14,379 samples/s  games 154009  score 47,166  policy 0.0003  value 0.055  entropy 0.20  clip 0.06  scale 25.0  kills 1:185326 2:43525 3:7676 4:921 5:239 6:92 7:40 8:7 9:3 10:2
+iter 3482  2.99h  14,380 samples/s  games 154926  score 46,791  policy 0.0005  value 0.052  entropy 0.19  clip 0.06  scale 25.0  kills 1:182797 2:43921 3:7842 4:872 5:185 6:64 7:30 8:13 9:3
