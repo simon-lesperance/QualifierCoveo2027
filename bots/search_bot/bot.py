@@ -1,8 +1,9 @@
 """Open-loop MCTS through the compiled simulator, guided by a small value network.
 
 The library is built by tools/build_sim.py and loaded here at import time, which
-runs before the bot connects. Set BOT_TIME_MS to test with a different time budget, and
-BOT_PHASE_BIG_MS to turn on the phase-aware budget.
+runs before the bot connects. Set BOT_TIME_MS to test with a different time budget. The
+phase-aware budget is on by default (big budget 120 ms); set BOT_PHASE_BIG_MS=0 for the
+fixed budget.
 """
 
 import ctypes
@@ -92,9 +93,9 @@ if ARRIVAL_GRACE_MS < 0:
     raise ValueError("BOT_ARRIVAL_GRACE_MS must be >= 0")
 # Phase-aware budget (phase_budget.py, docs/notes/phase-budget.md). 0 keeps the fixed budget;
 # a larger value is the budget for ticks whose deadline can't meet a predicted late freeze.
-PHASE_BIG_MS = float(os.environ.get("BOT_PHASE_BIG_MS", "0"))
+PHASE_BIG_MS = float(os.environ.get("BOT_PHASE_BIG_MS", "120"))
 PHASE_CUT_MS = float(os.environ.get("BOT_PHASE_CUT_MS", "85"))
-PHASE_TRACE = os.environ.get("BOT_PHASE_TRACE", "") == "1"
+PHASE_TRACE = os.environ.get("BOT_PHASE_TRACE", "1") == "1"
 if PHASE_BIG_MS and PHASE_BIG_MS < TIME_BUDGET_MS:
     raise ValueError("BOT_PHASE_BIG_MS must be 0 or >= BOT_TIME_MS")
 MAX_GAPS = 16
