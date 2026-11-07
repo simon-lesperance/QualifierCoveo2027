@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <utility>
+#include <memory>
 #include <vector>
 
 #include "game.hpp"
@@ -50,6 +51,12 @@ struct AgentConfig {
     bool policy_only = false;    // Plays the policy's top action, with no search.
     int root_halving = 0;        // Above 0, the root tries this many actions by sequential halving.
     double halving_prior = 0;    // How much the prior counts when halving.
+    bool halving_crn = false;    // The k-th visit of every root action sees the same dice guess.
+    double halving_max = 0;      // Halving ranks by mean + halving_max * (best - mean).
+    // With halving, keeps the chosen action's subtree for the next tick. 1 grafts it below the
+    // new root's actions, 2 also counts its visits at the root, 0 starts afresh each tick.
+    int tree_reuse = 0;
+    bool record_search = false;  // Keeps each search's root features and halving visits, for training.
     double tree_puct = 0;        // Above 0, nodes ranked by the tree net also use its prior this way.
     PolicyNet* tree_policy = nullptr;  // A cheaper net for inside the tree. Without it, policy does that too.
     int policy_depth = 0;        // Also orders the widening of nodes down to this depth.
@@ -103,8 +110,11 @@ int best_pocket_tile(const Game& game, int& size, int& covered);
 double now_ms();
 
 // Plans from what the server sends: no seed, no future rows, no knowledge of spawns.
+struct KeptTree;
+
 class Agent {
 public:
+    int last_iterations() const { return last_iterations_; }
     explicit Agent(AgentConfig config) : config_(config) {}
 
     Action act(const Observation& observation, const Game* truth = nullptr);
@@ -126,6 +136,10 @@ public:
     void set_root_halving(int actions, double prior_weight) {
         config_.root_halving = actions;
         config_.halving_prior = prior_weight;
+    }
+    void set_halving_options(bool crn, double max_weight) {
+        config_.halving_crn = crn;
+        config_.halving_max = max_weight;
     }
     void set_volcano_rank(bool on) { config_.volcano_rank = on; }
     void set_flood_weight(double weight) { config_.flood_weight = weight; }
@@ -154,6 +168,16 @@ public:
     };
     const std::vector<RootVisit>& root_visits() const { return root_visits_; }
 
+    // With record_search: the root's policy features, each halving action's code and visits,
+    // and the code of the action chosen. tick is -1 when the last move had no search.
+    struct SearchRecord {
+        int tick = -1;
+        std::vector<uint8_t> features;
+        int chosen = 0;
+        std::vector<std::pair<int, int>> arms;
+    };
+    const SearchRecord& last_record() const { return record_; }
+
 private:
     struct Choice {
         Action action;
@@ -181,6 +205,8 @@ private:
     std::vector<RootVisit> root_visits_;
     std::vector<Gap> gaps_;
     int last_iterations_ = 60;
+    std::shared_ptr<KeptTree> kept_;
+    SearchRecord record_;
 };
 
 }  // namespace sim

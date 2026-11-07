@@ -224,6 +224,7 @@ struct Edge {
     Action action;
     int visits = 0;
     double total = 0;
+    double best = -1e300;
     int child = -1;
     float prior = 0;
 };
@@ -270,7 +271,28 @@ struct TreeNode {
     std::vector<float> priors;  // By action code, once the tree net has ranked this node.
 };
 
+// Copies the subtree under start, so its root is element 0.
+void copy_subtree(const std::vector<TreeNode>& from, int start, std::vector<TreeNode>& to) {
+    to.assign(1, from[start]);
+    for (size_t i = 0; i < to.size(); i++) {
+        for (size_t e = 0; e < to[i].edges.size(); e++) {
+            int child = to[i].edges[e].child;
+            if (child < 0) continue;
+            to[i].edges[e].child = static_cast<int>(to.size());
+            to.push_back(from[child]);
+        }
+    }
+}
+
+bool same_action(const Action& a, const Action& b) { return a.type == b.type && a.x == b.x && a.y == b.y; }
+
 }  // namespace
+
+struct KeptTree {
+    int tick = -1;       // The tick it can be used on.
+    int root_score = 0;  // Its rewards are relative to this score.
+    std::vector<TreeNode> nodes;
+};
 
 Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double deadline_ms) {
     std::vector<TreeNode> tree(1);
@@ -289,6 +311,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         prior.assign(PolicyNet::kActions, 0);
         uint8_t features[kPolicyBytes];
         encode_policy_features(root, tick, features);
+        if (config_.record_search) record_.features.assign(features, features + kPolicyBytes);
         float logits[PolicyNet::kActions];
         config_.policy->evaluate(features, tick, logits);
 
@@ -351,6 +374,35 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         return amaf[std::min(offset, kAmafOffsets - 1) * kAmafKeys + amaf_key(action, root.origin_y())];
     };
 
+    auto halving_value = [&](const Edge& edge) {
+        if (edge.visits == 0) return lowest_reward;
+        double mean = edge.total / edge.visits;
+        return mean + config_.halving_max * (edge.best - mean);
+    };
+    // The least-visited surviving root action, after dropping the worse half once a round is done.
+    auto halving_pick = [&] {
+        auto least_visited = [&] {
+            int least = alive[0];
+            for (int i : alive) {
+                if (tree[0].edges[i].visits < tree[0].edges[least].visits) least = i;
+            }
+            return least;
+        };
+        int pick = least_visited();
+        if (tree[0].edges[pick].visits >= round_target && alive.size() > 1) {
+            auto rank = [&](int i) {
+                const Edge& edge = tree[0].edges[i];
+                double reward_range = std::max(1.0, highest_reward - lowest_reward);
+                return (halving_value(edge) - lowest_reward) / reward_range + config_.halving_prior * edge.prior;
+            };
+            std::stable_sort(alive.begin(), alive.end(), [&](int a, int b) { return rank(a) > rank(b); });
+            alive.resize((alive.size() + 1) / 2);
+            round_target += std::max(1, last_iterations_ / (rounds * static_cast<int>(alive.size())));
+            pick = least_visited();
+        }
+        return pick;
+    };
+
     // With a clock limit, a long pause between two readings means the host took the CPU away.
     double last_clock = deadline_ms > 0 ? now_ms() : 0;
     while (budget > 0) {
@@ -360,9 +412,15 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             last_clock = clock;
             if (clock >= deadline_ms) break;
         }
+        int root_pick = -1;
+        if (config_.root_halving > 0 && !tree[0].edges.empty()) root_pick = halving_pick();
+        uint32_t draw = static_cast<uint32_t>(iteration);
+        if (config_.root_halving > 0 && config_.halving_crn) {
+            draw = 7919u + static_cast<uint32_t>(root_pick >= 0 ? tree[0].edges[root_pick].visits : 0);
+        }
         int guess = dice > 0 ? static_cast<int>(iteration % dice) : 0;
         Game game = dice > 0 ? dice_roots[guess] : root;
-        if (dice == 0) game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + iteration * 40503u);
+        if (dice == 0) game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + draw * 40503u);
         iteration++;
 
         int path_node[32];
@@ -433,27 +491,37 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                     }
                     rounds = std::max(1, static_cast<int>(std::ceil(std::log2(std::max(2, count)))));
                     round_target = std::max(1, last_iterations_ / (rounds * count));
-                }
-                auto least_visited = [&] {
-                    int least = alive[0];
-                    for (int i : alive) {
-                        if (tree[0].edges[i].visits < tree[0].edges[least].visits) least = i;
+                    if (config_.tree_reuse > 0 && kept_ && kept_->tick == tick && !kept_->nodes.empty()) {
+                        // Last tick's search below the action actually played, shifted to this root's score.
+                        double shift = root.score() - kept_->root_score;
+                        int base = static_cast<int>(tree.size());
+                        for (TreeNode& kept : kept_->nodes) {
+                            for (Edge& edge : kept.edges) {
+                                if (edge.child >= 0) edge.child += base;
+                                edge.total -= shift * edge.visits;
+                                edge.best -= shift;
+                            }
+                        }
+                        tree.insert(tree.end(), kept_->nodes.begin(), kept_->nodes.end());
+                        if (dice > 0) grow_caches();
+                        for (int i = 0; i < count; i++) {
+                            for (const Edge& old : tree[base].edges) {
+                                if (old.child < 0 || !same_action(old.action, tree[0].edges[i].action)) continue;
+                                Edge& edge = tree[0].edges[i];
+                                edge.child = old.child;
+                                if (config_.tree_reuse >= 2) {
+                                    edge.visits = old.visits;
+                                    edge.total = old.total;
+                                    edge.best = old.best;
+                                    tree[0].visits += old.visits;
+                                    lowest_reward = std::min(lowest_reward, old.total / std::max(1, old.visits));
+                                    highest_reward = std::max(highest_reward, old.total / std::max(1, old.visits));
+                                }
+                            }
+                        }
                     }
-                    return least;
-                };
-                edge_index = least_visited();
-                if (tree[0].edges[edge_index].visits >= round_target && alive.size() > 1) {
-                    auto rank = [&](int i) {
-                        const Edge& edge = tree[0].edges[i];
-                        double reward_range = std::max(1.0, highest_reward - lowest_reward);
-                        double mean = edge.visits > 0 ? edge.total / edge.visits : lowest_reward;
-                        return (mean - lowest_reward) / reward_range + config_.halving_prior * edge.prior;
-                    };
-                    std::stable_sort(alive.begin(), alive.end(), [&](int a, int b) { return rank(a) > rank(b); });
-                    alive.resize((alive.size() + 1) / 2);
-                    round_target += std::max(1, last_iterations_ / (rounds * static_cast<int>(alive.size())));
-                    edge_index = least_visited();
                 }
+                edge_index = root_pick >= 0 ? root_pick : halving_pick();
             }
             if (edge_index >= 0) {
                 // Chosen above.
@@ -599,6 +667,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             Edge& edge = tree[path_node[i]].edges[path_edge[i]];
             edge.visits++;
             edge.total += reward;
+            edge.best = std::max(edge.best, reward);
             if (i > 0) tree[path_node[i]].visits++;
             if (config_.rave_k > 0) {
                 Amaf& record = shared(path_offset[i], edge.action);
@@ -610,6 +679,26 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
     }
 
     last_iterations_ = static_cast<int>(iteration);
+    auto keep = [&](const Choice& choice) {
+        if (config_.record_search && !record_.features.empty()) {
+            record_.tick = tick;
+            record_.chosen = action_code(choice.action, root.origin_y());
+            record_.arms.clear();
+            for (const Edge& edge : tree[0].edges) record_.arms.push_back({action_code(edge.action, root.origin_y()), edge.visits});
+        }
+        if (config_.tree_reuse > 0) {
+            if (!kept_) kept_ = std::make_shared<KeptTree>();
+            kept_->nodes.clear();
+            kept_->tick = -1;
+            for (const Edge& edge : tree[0].edges) {
+                if (edge.child < 0 || !same_action(edge.action, choice.action)) continue;
+                copy_subtree(tree, edge.child, kept_->nodes);
+                kept_->tick = tick + 1;
+                kept_->root_score = root.score();
+            }
+        }
+        return choice;
+    };
     Choice best{Action{}, -1};
     int most_visits = -1;
     root_visits_.clear();
@@ -621,13 +710,13 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         for (int i : alive) {
             const Edge& edge = tree[0].edges[i];
             if (edge.visits * 2 < top_visits || edge.visits == 0) continue;
-            double mean = edge.total / edge.visits;
+            double mean = halving_value(edge);
             if (mean > best_mean) {
                 best_mean = mean;
                 best = {edge.action, mean};
             }
         }
-        if (best.value >= 0 || best_mean > -1e300) return best;
+        if (best.value >= 0 || best_mean > -1e300) return keep(best);
     }
     for (const Edge& edge : tree[0].edges) {
         root_visits_.push_back({edge.action, edge.visits});
@@ -636,7 +725,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             best = {edge.action, edge.visits > 0 ? edge.total / edge.visits : 0};
         }
     }
-    return best;
+    return keep(best);
 }
 
 double flood_outlook(Game game, int tick, const std::vector<std::pair<int, Action>>& plan, int lookahead, int limit,
