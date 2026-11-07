@@ -33,6 +33,7 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 | The same with the PPO prior (v33, v35) | 40 | 52,186 | 77,532 | 7 | 0.6 |
 | The small tree net on every depth-1 node, with the speedups (v36) | 21 | 51,507 | 68,418 | 0 | 1.2 |
 | **The small tree net from a node's second visit (v37)** | **49** | **55,434** | **79,302** | **3** | **1.0** |
+| v37 with the phase budget from `rich/dev` (v38) | 10 | 50,518 | 66,547 | 0 | 1.4 |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
@@ -40,9 +41,10 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 
 - **The small tree net helps, if it's used sparingly.** It's a 16-channel copy of the PPO net that orders moves one level down. Used on every depth-1 node (v36), it left about 700 simulated ticks per move on the server, against about 5,000 for v35, and gained nothing. From a node's second visit (v37), it evaluates about 5 nodes per move and keeps about 4,700 ticks. With biomes weighted equally, v37 scored 54,283 ±897 on the server against 52,010 ±1,946 for v35, so +2,273 ±2,143.
 - **Local tests must charge server costs.** At a charge of 75 ticks per small-net evaluation, every depth-1 node looked like +2,553 ±382. At 460 ticks and 1,370 for the root net it's -1,638 ±677, which matches the server, while the second visit is +1,230 ±609 and the third +1,382 ±734, on 120 paired games. `simulated` in the BUDGET log includes a flat 1,500 charge for the root net, so subtract it.
+- **The phase budget gives more search, but its score is unproven.** With the small tree net it averaged a 109.8 ms budget and 6,153 simulated ticks per move against 4,866 for v37, with 1.4 late ticks per game. Ten games on v38 saw only one `volcanic_plains` game. By biome they're close to v37: 54,895 against 57,980 on `deep_crevasse` and 44,902 against 45,499 on `mountain_range`. Three slow replies turn the extension off for the rest of a game, and that happened in 2 of the 10.
 - **Stronger nets alone don't make better priors.** Paired against `oracle1c` as the root prior: the DAgger PPO net +466 ±336 on 360 games (45,684 alone), plan-start PPO +1,140 ±775 on 120 games (45,470 alone), and the `volcanic_plains` net -708 ±850 on 120 volcanic games (48,131 alone against 45,854).
 
-The active server build is v37, with the PPO prior and the small tree net. To build it, copy `policy_net.bin` from `runs/ppo/oracle1c/` into `bots/search_bot/`, which is git-ignored, and run `tools/make_zip.py`. Without that file, the bot plays without the prior.
+The active server build is v38, which is v37 with the phase budget. To build it, copy `policy_net.bin` from `runs/ppo/oracle1c/` into `bots/search_bot/`, which is git-ignored, and run `tools/make_zip.py`. Without that file, the bot plays without the prior.
 
 ## Latest: policy net from foresight play
 
