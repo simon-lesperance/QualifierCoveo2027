@@ -67,6 +67,17 @@ SIM_EXPORT void sim_agent_set_root_halving(void* agent, int actions, double prio
     static_cast<sim::Agent*>(agent)->set_root_halving(actions, prior_weight);
 }
 
+// crn: the k-th visit of every halving action sees the same dice guess. max_weight: halving
+// ranks by mean + max_weight * (best - mean).
+SIM_EXPORT void sim_agent_set_halving_options(void* agent, int crn, double max_weight) {
+    static_cast<sim::Agent*>(agent)->set_halving_options(crn != 0, max_weight);
+}
+
+// 0 starts each tick afresh; 1 keeps the played action's subtree below the new root's actions.
+SIM_EXPORT void sim_agent_set_tree_reuse(void* agent, int mode) {
+    static_cast<sim::Agent*>(agent)->set_tree_reuse(mode);
+}
+
 SIM_EXPORT void sim_agent_set_waves(void* agent, int pocket_limit, int pocket_targets, double pocket_weight) {
     static_cast<sim::Agent*>(agent)->set_waves(pocket_limit, pocket_targets, pocket_weight);
 }
