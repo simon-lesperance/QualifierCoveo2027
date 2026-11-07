@@ -6,7 +6,7 @@
 //                              [--shield 1] [--grid 1]
 //                              [--mcts 1] [--exploration x] [--depth n] [--widening x]
 //                              [--net file] [--value-weight x] [--net-cost n] [--biome name]
-//                              [--policy file] [--puct x] [--log folder] [--csv file]
+//                              [--policy file] [--tree-policy file] [--puct x] [--log folder] [--csv file]
 //                              [--optimism x]
 
 #include <atomic>
@@ -93,6 +93,7 @@ int main(int argc, char** argv) {
     sim::AgentConfig config;
     sim::ValueNet net;
     std::string policy_path;
+    std::string tree_policy_path;
     std::string log_folder;
     std::string csv_path;
     for (int i = 2; i + 1 < argc; i += 2) {
@@ -124,6 +125,11 @@ int main(int argc, char** argv) {
         else if (name == "--policy-targets") config.policy_targets = value;
         else if (name == "--prior-floor") config.prior_floor = std::atof(argv[i + 1]);
         else if (name == "--policy") policy_path = argv[i + 1];
+        else if (name == "--tree-policy") tree_policy_path = argv[i + 1];
+        else if (name == "--policy-only") config.policy_only = value != 0;
+        else if (name == "--policy-depth") config.policy_depth = value;
+        else if (name == "--policy-tree-cost") config.policy_tree_cost = value;
+        else if (name == "--policy-tree-visits") config.policy_tree_visits = value;
         else if (name == "--log") log_folder = argv[i + 1];
         else if (name == "--csv") csv_path = argv[i + 1];
         else if (name == "--rng-tag") rng_tag = argv[i + 1];
@@ -161,6 +167,11 @@ int main(int argc, char** argv) {
     }
 
     sim::PolicyNet policy;
+    sim::PolicyNet tree_policy;
+    if (!tree_policy_path.empty() && !tree_policy.load(tree_policy_path.c_str())) {
+        std::fprintf(stderr, "could not load %s\n", tree_policy_path.c_str());
+        return 1;
+    }
     if (!policy_path.empty() && !policy.load(policy_path.c_str())) {
         std::fprintf(stderr, "could not load %s\n", policy_path.c_str());
         return 1;
@@ -182,6 +193,8 @@ int main(int argc, char** argv) {
         sim::PolicyNet own_policy = policy;  // It keeps scratch space, so each thread has its own.
         sim::AgentConfig own_config = config;
         if (!policy_path.empty()) own_config.policy = &own_policy;
+        sim::PolicyNet own_tree_policy = tree_policy;
+        if (!tree_policy_path.empty()) own_config.tree_policy = &own_tree_policy;
         for (int job = next.fetch_add(1); job < games * 3; job = next.fetch_add(1)) {
             if (!biome_filter.empty() && biome_filter != kBiomes[job % 3]) continue;
             results[job] = play(kBiomes[job % 3], "live-" + std::to_string(first + job / 3), own_config, log_folder);

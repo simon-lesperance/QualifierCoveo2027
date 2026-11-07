@@ -289,6 +289,7 @@ int amaf_key(const Action& action, int origin) {
 
 struct TreeNode {
     bool opened = false;
+    bool ranked = false;
     int visits = 0;
     int next_untried = 0;
     std::vector<Action> untried;
@@ -309,8 +310,8 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
     std::vector<float> prior;
     if (config_.policy != nullptr) {
         prior.assign(PolicyNet::kActions, 0);
-        uint8_t features[kFeatureBytes];
-        encode_features(root, tick, features);
+        uint8_t features[kPolicyBytes];
+        encode_policy_features(root, tick, features);
         float logits[PolicyNet::kActions];
         config_.policy->evaluate(features, tick, logits);
 
@@ -412,6 +413,20 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                 untried.resize(actions.size());
                 for (size_t i = 0; i < actions.size(); i++) untried[i] = actions[order[i].second];
                 tree[node].opened = true;
+            }
+            if (config_.policy != nullptr && depth >= 1 && depth <= config_.policy_depth && !tree[node].ranked &&
+                tree[node].visits >= config_.policy_tree_visits) {
+                uint8_t features[kPolicyBytes];
+                encode_policy_features(game, turn, features);
+                float logits[PolicyNet::kActions];
+                (config_.tree_policy != nullptr ? config_.tree_policy : config_.policy)->evaluate(features, turn, logits);
+                int origin = game.origin_y();
+                std::vector<Action>& untried = tree[node].untried;
+                std::stable_sort(untried.begin() + tree[node].next_untried, untried.end(), [&](const Action& a, const Action& b) {
+                    return logits[action_code(a, origin)] > logits[action_code(b, origin)];
+                });
+                tree[node].ranked = true;
+                budget -= config_.policy_tree_cost;
             }
 
             int offset = turn - tick;
@@ -709,6 +724,22 @@ bool Agent::pick_volcano(const Game& root, int tick, Action& action) {
     return best >= config_.volcano_threshold && best > without;
 }
 
+Action Agent::policy_action(const Game& root, int tick) {
+    uint8_t features[kPolicyBytes];
+    encode_policy_features(root, tick, features);
+    float logits[PolicyNet::kActions];
+    config_.policy->evaluate(features, tick, logits);
+
+    int best = 0;
+    for (int cell = 0; cell < kCells; cell++) {
+        if (root.meteor_count() < kMaxMeteors && logits[1 + cell] > logits[best]) best = 1 + cell;
+        if (root.volcano_count() < kMaxVolcanoes && (root.flags(cell) & kMountain) && logits[1 + kCells + cell] > logits[best]) {
+            best = 1 + kCells + cell;
+        }
+    }
+    return action_from_code(best, root.origin_y());
+}
+
 Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
     root_visits_.clear();
@@ -728,6 +759,8 @@ Action Agent::act(const Observation& observation, const Game* truth) {
         Action volcano;
         if (pick_volcano(root, observation.tick, volcano)) return volcano;
     }
+
+    if (config_.policy != nullptr && config_.policy_only) return policy_action(root, observation.tick);
 
     double deadline = config_.time_budget_ms > 0 ? now_ms() + config_.time_budget_ms : 0;
     ranked_volcanoes_.clear();

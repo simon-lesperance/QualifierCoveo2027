@@ -54,6 +54,11 @@ struct AgentConfig {
     int policy_targets = 30;     // How many of its favourite actions to add to the list.
     double prior_floor = 0.1;    // Share of the prior spread over all actions, so none is ruled out.
     int policy_cost = 1500;      // Simulated ticks charged per evaluation, so tests stay fair on time.
+    bool policy_only = false;    // Plays the policy's top action, with no search.
+    PolicyNet* tree_policy = nullptr;  // A cheaper net for inside the tree. Without it, policy does that too.
+    int policy_depth = 0;        // Also orders the widening of nodes down to this depth.
+    int policy_tree_cost = 0;    // Simulated ticks charged for each of those evaluations.
+    int policy_tree_visits = 0;  // Waits for this many visits, so rarely seen nodes cost nothing.
 
     // Plans include waves at guessed tiles, drawn afresh each iteration. When the spawn
     // area is small, a meteor timed for the wave's first tick can kill all of it.
@@ -113,7 +118,15 @@ public:
         config_.net = net;
         config_.value_weight = weight;
     }
-    void set_policy(PolicyNet* policy) { config_.policy = policy; }
+    void set_policy(PolicyNet* policy, double puct = 1) {
+        config_.policy = policy;
+        config_.puct = puct;
+    }
+    void set_tree_policy(PolicyNet* policy, int depth, int visits) {
+        config_.tree_policy = policy;
+        config_.policy_depth = depth;
+        config_.policy_tree_visits = visits;
+    }
     void set_volcano_rank(bool on) { config_.volcano_rank = on; }
     void set_flood_weight(double weight) { config_.flood_weight = weight; }
     void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {
@@ -151,6 +164,7 @@ private:
     int rank_volcanoes(const Game& root, int tick);
     Choice search(const Game& root, int tick, int budget, double deadline_ms);
     Choice search_mcts(const Game& root, int tick, int budget, double deadline_ms);
+    Action policy_action(const Game& root, int tick);
 
     AgentConfig config_;
     int last_simulated_ = 0;

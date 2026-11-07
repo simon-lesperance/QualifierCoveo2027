@@ -103,6 +103,8 @@ RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 3, 5
 WIDENING, EXPLORATION = 3.0, 0.5
 VALUE_WEIGHT = 0.3
 POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT = 60, 4, 0.0
+POLICY_PUCT = 0.3  # Used only if policy_net.bin is in this folder.
+TREE_DEPTH, TREE_VISITS = 1, 0  # Used only if tree_net.bin is in this folder too.
 
 
 class Observation(ctypes.Structure):
@@ -142,6 +144,10 @@ def load_library() -> ctypes.CDLL:
     ]
     library.sim_agent_load_net.restype = ctypes.c_int
     library.sim_agent_load_net.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_double]
+    library.sim_agent_load_policy.restype = ctypes.c_int
+    library.sim_agent_load_policy.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_double]
+    library.sim_agent_load_tree_policy.restype = ctypes.c_int
+    library.sim_agent_load_tree_policy.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
     library.sim_agent_set_volcano_rank.restype = None
     library.sim_agent_set_volcano_rank.argtypes = [ctypes.c_void_p, ctypes.c_int]
     library.sim_agent_set_waves.restype = None
@@ -183,6 +189,14 @@ class Bot:
         net_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "value_net.bin")
         if not LIBRARY.sim_agent_load_net(self.agent, net_path.encode(), VALUE_WEIGHT):
             print("Could not load the value network, playing without it", flush=True)
+        policy_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "policy_net.bin")
+        if os.path.exists(policy_path):
+            loaded = LIBRARY.sim_agent_load_policy(self.agent, policy_path.encode(), POLICY_PUCT)
+            print(f"POLICY loaded={loaded} puct={POLICY_PUCT}", flush=True)
+            tree_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tree_net.bin")
+            if os.path.exists(tree_path):
+                loaded = LIBRARY.sim_agent_load_tree_policy(self.agent, tree_path.encode(), TREE_DEPTH, TREE_VISITS)
+                print(f"TREE loaded={loaded} depth={TREE_DEPTH} visits={TREE_VISITS}", flush=True)
         LIBRARY.sim_agent_set_waves(self.agent, POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT)
         LIBRARY.sim_agent_set_volcano_rank(self.agent, 1)
         self.observation = Observation()

@@ -9,7 +9,7 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 3. **Hidden dice cost more than hidden terrain.** Dinosaur tie-breaks come from an RNG the bot can't see. Revealing them to an older bot added about 19,000, while true future rows added little at that stage. Today's bot gains at most +3,167 ±697 from true rows.
 4. **Tuning this search is exhausted at about 55,000.** Depth, widening, horizon, exploration, targets, caching and RAVE have all failed to beat v11 clearly.
 5. **More budget alone won't close the gap.** See [the budget tables](#budget-against-score).
-6. **Imitating foresight plays far better than imitating MCTS,** and PPO improves quickly from that start. This is the current line of work ([status.md](status.md)).
+6. **Imitating foresight plays far better than imitating MCTS,** and PPO improves quickly from that start, but it levels off near 44,000 alone. As an MCTS prior it adds +2,327 ±336 at the server's capacity, and more 80k+ games ([status.md](status.md)).
 
 ## Bot history
 
@@ -19,9 +19,24 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 | v8 | gen1 value net | 61,939 |
 | **v9** | Search simulates waves at guessed tiles | **85,231** |
 | v10 | Volcanoes ranked by flooding | 42,241 |
-| v11 (live) | Only the three best-flooding volcanoes, gen2 net | 67,855 |
+| v11 | Only the three best-flooding volcanoes, gen2 net | 67,855 |
+| v12 | x86-64-v3 library, late-tick fix | 67,461 |
+| v12 + PPO prior (live) | PPO net as a root prior | 77,532 |
 
 Server scores are noisy, and 85,231 was a lucky game. On paired simulated games v11 is the strongest version.
+
+## Simulator speed
+
+Two changes from `rich/dev` make the simulator faster without changing any result: the early-exit safety search (`nearest_safe`) and an RC4 key index without a modulo. `sim/safety_test.cpp` checks the safety search against an independent BFS.
+
+| Check | Result |
+|---|---|
+| 18 games at the live settings with the PPO net, 4 alternating rounds | 124.5 s to 108.4 s, about 15% more search per second |
+| Same seeds, old and new build | Every game identical |
+| `tools/check_sim.py`, 12 games | Identical to the engine |
+| 360 paired games, budget 7,240 against 6,300 | +123 ±377, with 4 games at 80,000+ against 6 |
+
+The extra search has no measurable effect on the mean, and the best game of 108,598 is one game. The speedups still cost nothing, so they belong in the next upload. Their effect on the server hasn't been measured.
 
 ## Budget against score
 
@@ -161,6 +176,7 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Rewarding a cleared map, or fewer living dinosaurs | No change |
 | Wave-clear bonus (`rich/dev`) | 48,194 against 48,596 on fresh seeds |
 | Better target generation (`rich/dev`) | Fixed-work gain didn't survive the real deadline |
+| 120 ms search on the server | 21-25 late ticks per game, and 3 games averaged 43,340 |
 
 ### Pockets and volcanoes
 
@@ -182,7 +198,7 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Beam ancestry labels | One parent's children fill the beam: about 1 ancestor 20 ticks back |
 | Capping children per parent | 156,257-165,381 against 164,770, within noise |
 | Imitating MCTS visit counts | 8,777, far weaker than PPO |
-| PPO or imitation net as an MCTS prior | No gain so far, at about 31,000 strength. Worth retesting once stronger |
+| PPO net as an MCTS prior, at about 31,000 strength | No gain |
 
 Why the fg1 value net lost: within one position and tick, both nets correlate only about 0.04 with outcomes. A value net is mainly learning which ticks are rich, which doesn't help choose between moves.
 

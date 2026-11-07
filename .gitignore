@@ -41,3 +41,4 @@ build/
 *.pdb
 *.lib
 *.exp
+bots/search_bot/policy_net.bin

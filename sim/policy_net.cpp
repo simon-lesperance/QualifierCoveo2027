@@ -88,12 +88,19 @@ void PolicyNet::evaluate(const uint8_t* features, int tick, float* logits) {
     flat[kGlobals + 1] = static_cast<float>(std::cos(angle / 5));
     flat[kGlobals + 2] = static_cast<float>(std::sin(angle / kStegoCycle));
     flat[kGlobals + 3] = static_cast<float>(std::cos(angle / kStegoCycle));
+    float spawn_size = features[kFeatureBytes + kCells] / 255.0f;
+    float wave_clock = features[kFeatureBytes + kCells + 1] / 255.0f;
+    float map_empty = features[kChannels * kCells + 1] == 0 ? 1.0f : 0.0f;  // A wave comes next tick.
     for (int row = 0; row < kHeight; row++) {
         for (int column = 0; column < kWidth; column++) {
             int cell = row * kWidth + column;
             x[(kChannels + 1) * kCells + cell] = -1 + 2 * row / static_cast<float>(kHeight - 1);
             x[(kChannels + 2) * kCells + cell] = -1 + 2 * column / static_cast<float>(kWidth - 1);
             for (int i = 0; i < kGlobals + 4; i++) x[(kChannels + 3 + i) * kCells + cell] = flat[i];
+            x[(kPlanes - 4) * kCells + cell] = features[kFeatureBytes + cell] / 255.0f;
+            x[(kPlanes - 3) * kCells + cell] = spawn_size;
+            x[(kPlanes - 2) * kCells + cell] = wave_clock;
+            x[(kPlanes - 1) * kCells + cell] = map_empty;
         }
     }
 

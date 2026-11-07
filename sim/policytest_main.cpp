@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     std::FILE* file = std::fopen((folder + "/policy_check.bin").c_str(), "rb");
     int32_t count;
     std::fread(&count, sizeof(count), 1, file);
-    std::vector<uint8_t> features(sim::kFeatureBytes);
+    std::vector<uint8_t> features(sim::kPolicyBytes);
     std::vector<float> expected(sim::PolicyNet::kActions);
     std::vector<float> logits(sim::PolicyNet::kActions);
     double worst = 0;

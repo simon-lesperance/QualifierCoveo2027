@@ -11,6 +11,8 @@
 //                                                 [--ancestry file] [--horizon n]
 //                                                 [--dead n] [--rejects n] [--children n]
 //                                                 [--plan-data file]
+//                                                 [--dagger policy --dagger-data file]
+//                                                 [--gap n] [--segment n]
 //
 // The plan file uses the same format as sim_replay's actions.
 //
@@ -30,6 +32,11 @@
 // --plan-data replays the best plan and writes each position with the move it chose, in
 // sim_policygen's format, to teach the policy net from foresight play. The features hold
 // only what a live bot sees, so the net has to learn what is good without the foresight.
+//
+// --dagger plays the game with a policy net instead. Every --gap ticks the beam plans
+// --segment ticks ahead from the position the net reached, and each position of that plan
+// is written with its move. This teaches the net from the positions it really gets into.
+// Each record is int32 tick, the policy feature bytes, int32 action code.
 
 #include <algorithm>
 #include <atomic>
@@ -46,6 +53,7 @@
 #include "agent.hpp"
 #include "features.hpp"
 #include "game.hpp"
+#include "policy_net.hpp"
 #include "value_net.hpp"
 
 namespace {
@@ -79,6 +87,10 @@ struct Options {
     int rejects = 10;  // Candidates the beam dropped to write, per snapshot.
     int children = 0;  // Most states one parent may keep, or 0 for no limit.
     std::string plan_data;  // Where to write the best plan as policy training data, if anywhere.
+    std::string dagger;       // A policy net to play the game, which turns on --dagger.
+    std::string dagger_data;  // Where to write what the beam would have done.
+    int gap = 20;
+    int segment = 40;
 };
 
 constexpr int kPocketLimit = 60;
@@ -429,6 +441,89 @@ void report(const sim::Terrain& terrain, const char* seed, const std::vector<Act
 
 }  // namespace
 
+// The beam from one position. Returns the top-ranked line's move for each turn.
+std::vector<Action> beam_segment(const Game& start, int first, int last, int width, const Options& options) {
+    std::vector<Game> beam{start};
+    std::vector<std::vector<Link>> history(last + 1);
+    std::vector<Action> actions;
+    for (int turn = first; turn <= last; turn++) {
+        std::vector<Candidate> all;
+        for (int index = 0; index < static_cast<int>(beam.size()); index++) expand(beam[index], index, turn, options, actions, all);
+        std::sort(all.begin(), all.end(), ranks_higher);
+        std::vector<Game> next_beam;
+        std::unordered_set<uint64_t> seen;
+        for (size_t position = 0; position < all.size() && static_cast<int>(next_beam.size()) < width; position++) {
+            const Candidate& candidate = all[position];
+            if (!seen.insert(candidate.hash).second) continue;
+            Game next = beam[candidate.parent];
+            next.step(turn, candidate.action);
+            next_beam.push_back(next);
+            history[turn].push_back({candidate.parent, candidate.action});
+        }
+        beam.swap(next_beam);
+    }
+    std::vector<Action> plan(last + 1);
+    int index = 0;
+    for (int turn = last; turn >= first; turn--) {
+        plan[turn] = history[turn][index].action;
+        index = history[turn][index].parent;
+    }
+    return plan;
+}
+
+Action greedy_action(sim::PolicyNet& policy, const Game& game, int tick) {
+    uint8_t features[sim::kPolicyBytes];
+    sim::encode_policy_features(game, tick, features);
+    std::vector<float> logits(sim::PolicyNet::kActions);
+    policy.evaluate(features, tick, logits.data());
+    int best = 0;
+    for (int cell = 0; cell < sim::kCells; cell++) {
+        if (game.meteor_count() < sim::kMaxMeteors && logits[1 + cell] > logits[best]) best = 1 + cell;
+        if (game.volcano_count() < sim::kMaxVolcanoes && (game.flags(cell) & sim::kMountain) && logits[1 + sim::kCells + cell] > logits[best]) {
+            best = 1 + sim::kCells + cell;
+        }
+    }
+    Action action;
+    if (best == 0) return action;
+    int cell = (best - 1) % sim::kCells;
+    action.type = best <= sim::kCells ? Action::Type::LaunchMeteor : Action::Type::TriggerVolcano;
+    action.x = cell % sim::kWidth;
+    action.y = cell / sim::kWidth + game.origin_y();
+    return action;
+}
+
+int run_dagger(const sim::Terrain& terrain, const char* seed, int width, const Options& options) {
+    sim::PolicyNet policy;
+    if (!policy.load(options.dagger.c_str())) {
+        std::fprintf(stderr, "could not load %s\n", options.dagger.c_str());
+        return 1;
+    }
+    Game game(terrain, seed);
+    std::ofstream file(options.dagger_data, std::ios::binary);
+    long long teacher_points = 0;
+    for (int tick = 1; tick <= sim::kMaxTicks; tick++) {
+        if ((tick - 1) % options.gap == 0) {
+            int last = std::min(sim::kMaxTicks, tick + options.segment - 1);
+            std::vector<Action> plan = beam_segment(game, tick, last, width, options);
+            Game teacher = game;
+            for (int32_t t = tick; t <= last; t++) {
+                uint8_t features[sim::kPolicyBytes];
+                sim::encode_policy_features(teacher, t, features);
+                int32_t code = action_code(plan[t], teacher.origin_y());
+                file.write(reinterpret_cast<const char*>(&t), sizeof(t));
+                file.write(reinterpret_cast<const char*>(features), sizeof(features));
+                file.write(reinterpret_cast<const char*>(&code), sizeof(code));
+                teacher.step(t, plan[t]);
+            }
+            teacher_points += teacher.score() - game.score();
+        }
+        game.step(tick, greedy_action(policy, game, tick));
+    }
+    int segments = (sim::kMaxTicks - 1) / options.gap + 1;
+    std::printf("net %d  teacher points per %d ticks %lld\n", game.score(), options.segment, teacher_points / segments);
+    return 0;
+}
+
 int main(int argc, char** argv) {
     if (argc < 5) {
         std::fprintf(stderr, "usage: sim_search <biome> <seed> <width> <plan file> [options]\n");
@@ -466,6 +561,10 @@ int main(int argc, char** argv) {
         else if (name == "--rejects") options.rejects = static_cast<int>(value);
         else if (name == "--children") options.children = static_cast<int>(value);
         else if (name == "--plan-data") options.plan_data = argv[i + 1];
+        else if (name == "--dagger") options.dagger = argv[i + 1];
+        else if (name == "--dagger-data") options.dagger_data = argv[i + 1];
+        else if (name == "--gap") options.gap = static_cast<int>(value);
+        else if (name == "--segment") options.segment = static_cast<int>(value);
         else if (name == "--net") {
             if (!net.load(argv[i + 1])) {
                 std::fputs("can't read the net file\n", stderr);
@@ -476,6 +575,8 @@ int main(int argc, char** argv) {
     }
 
     sim::Terrain terrain(seed, biome);
+    if (!options.dagger.empty()) return run_dagger(terrain, seed, width, options);
+
     std::vector<Game> beam;
     beam.reserve(width);
     beam.emplace_back(terrain, seed);
