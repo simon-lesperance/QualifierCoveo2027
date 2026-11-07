@@ -41,8 +41,8 @@ SKIP_OTHER_MAPS = os.environ.get("BOT_SKIP_OTHER_MAPS", "1") == "1"
 SKIP_DELAY_S = 0.2
 VOLCANIC_MOUNTAIN_MIN = 18  # The lowest mountain tile is 13 on deep_crevasse and 16 on mountain_range.
 RADIUS, HORIZON, VOLCANOES, DEPTH = 2, 4, 3, 5
-WIDENING, EXPLORATION = 3.0, 0.5
-VALUE_WEIGHT = 0.3
+WIDENING, EXPLORATION = 2.0, 0.35
+VALUE_WEIGHT = 0.4
 POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT = 60, 4, 0.0
 POLICY_PUCT = 0.3  # Used only if policy_net.bin is in this folder.
 TREE_DEPTH, TREE_VISITS = 1, 0  # Used only if tree_net.bin is in this folder too.
