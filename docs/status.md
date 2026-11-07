@@ -45,7 +45,9 @@ counts volcanic games only.
 | **v37 with map skipping (v40)** | 20 | 57,168 | **90,528** |
 | ds32 tree net on every depth-1 node (v41) | 17 | 56,698 | 76,811 |
 | ds32 at the root and in the tree (v42) | 10 | about 58,600 | 80,529 |
-| v42 retuned: widening 2, exploration 0.35, value weight 0.4 (v43) | in progress | | 80,648 |
+| v42 retuned: widening 2, exploration 0.35, value weight 0.4 (v43) | about 30 | about 57,500 | 80,648 |
+| v43 with widening 1.5 (v44) | 7 | about 61,800 | 74,552 |
+| **v44 with sequential halving over 16 root actions (v45)** | 11 | about 66,700 | **108,536** |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
@@ -53,13 +55,14 @@ counts volcanic games only.
 
 - **The small tree net helps, if it's used sparingly.** It's a 16-channel copy of the PPO net that orders moves one level down. Used on every depth-1 node (v36), it left about 700 simulated ticks per move on the server, against about 5,000 for v35, and gained nothing. From a node's second visit (v37), it evaluates about 5 nodes per move and keeps about 4,700 ticks. With biomes weighted equally, v37 scored 54,283 ±897 on the server against 52,010 ±1,946 for v35, so +2,273 ±2,143.
 - **Local tests must charge server costs.** At a charge of 75 ticks per small-net evaluation, every depth-1 node looked like +2,553 ±382. At 460 ticks and 1,370 for the root net it's -1,638 ±677, which matches the server, while the second visit is +1,230 ±609 and the third +1,382 ±734, on 120 paired games. `simulated` in the BUDGET log includes a flat 1,500 charge for the root net, so subtract it.
-- **New best: 90,528** (game 25058, v40), from v37 with map skipping.
+- **New best: 108,536** (game 25374, v45). The previous best of 90,528 (game 25058, v40) came from v37 with map skipping.
+- **Sequential halving at the root: +4,280 ±512** on 180 fresh paired games against v43, or +7,522 ±574 against v37. The root tries the net's top 16 actions and drops the worse half each round, with rounds sized from the previous tick's iteration count. 8 and 32 actions gained less (+1,822 and +1,411), and adding the prior to the halving ranking lost 1,032 ±493.
 - **Depthwise nets and retuning: +3,241 ±554** on 180 fresh paired games against v37 at server costs, with a mean of 57,979 and 22 games at 70k+. The bot now uses one 11,427-parameter depthwise net (`runs/policy/ds32`) at the root and on every depth-1 node, in place of the full net and small16. See [notes/research-2026-11.md](notes/research-2026-11.md).
 - **The phase budget looked worse on `volcanic_plains`**, about 54,500 against 57,000-59,000 for fixed 95 ms, and is off by default. The cause is unknown.
 - **The phase budget gives more search, but its score is unproven.** With the small tree net it averaged a 109.8 ms budget and 6,153 simulated ticks per move against 4,866 for v37, with 1.4 late ticks per game. Ten games on v38 saw only one `volcanic_plains` game. By biome they're close to v37: 54,895 against 57,980 on `deep_crevasse` and 44,902 against 45,499 on `mountain_range`. Three slow replies turn the extension off for the rest of a game, and that happened in 2 of the 10.
 - **Stronger nets alone don't make better priors.** Paired against `oracle1c` as the root prior: the DAgger PPO net +466 ±336 on 360 games (45,684 alone), plan-start PPO +1,140 ±775 on 120 games (45,470 alone), and the `volcanic_plains` net -708 ±850 on 120 volcanic games (48,131 alone against 45,854).
 
-The active server build is v43: ds32 at the root and in the tree, retuned, fixed 95 ms, `volcanic_plains` only. `policy_net.bin` and `tree_net.bin` in `bots/search_bot/` are both ds32. To build it, copy `policy_net.bin` from `runs/ppo/oracle1c/` into `bots/search_bot/`, which is git-ignored, and run `tools/make_zip.py`. Without that file, the bot plays without the prior.
+The active server build is v45: ds32 at the root and in the tree, sequential halving over 16 root actions, widening 1.5, exploration 0.35, value weight 0.4, fixed 95 ms, `volcanic_plains` only. `policy_net.bin` and `tree_net.bin` in `bots/search_bot/` are both ds32. To build it, copy `policy_net.bin` from `runs/ppo/oracle1c/` into `bots/search_bot/`, which is git-ignored, and run `tools/make_zip.py`. Without that file, the bot plays without the prior.
 
 ## Latest: policy net from foresight play
 
