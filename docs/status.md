@@ -38,16 +38,16 @@ The qualifier deadline is about 2026-11-06 in the evening, so check the dashboar
 From v39 on, the bot plays only `volcanic_plains` and ends other games early, so the table below
 counts volcanic games only.
 
-| Build, `volcanic_plains` only | Games | Mean | Best |
-|---|---|---|---|
-| v37 | 18 | 59,369 | 79,302 |
-| Phase budget (v38, v39) | 22 | about 54,500 | 64,440 |
-| **v37 with map skipping (v40)** | 20 | 57,168 | **90,528** |
-| ds32 tree net on every depth-1 node (v41) | 17 | 56,698 | 76,811 |
-| ds32 at the root and in the tree (v42) | 10 | about 58,600 | 80,529 |
-| v42 retuned: widening 2, exploration 0.35, value weight 0.4 (v43) | about 30 | about 57,500 | 80,648 |
-| v43 with widening 1.5 (v44) | 7 | about 61,800 | 74,552 |
-| **v44 with sequential halving over 16 root actions (v45)** | 11 | about 66,700 | **108,536** |
+| Build, `volcanic_plains` only | Games | Mean | Best | 70k+ |
+|---|---|---|---|---|
+| v37 (before map skipping, volcanic games only) | 18 | 59,369 | 79,302 | 1 |
+| Phase budget (v38, v39) | 19 | 55,000 ±1,443 | 64,440 | 0 |
+| v37 with map skipping (v40) | 20 | 57,168 ±2,547 | 90,528 | 2 |
+| ds32 tree net on every depth-1 node (v41) | 17 | 56,698 | 76,811 | 1 |
+| ds32 at the root and in the tree (v42) | 9 | 58,579 ±3,981 | 80,529 | 2 |
+| v42 retuned: widening 2, exploration 0.35, value weight 0.4 (v43) | 31 | 58,039 ±1,459 | 80,648 | 4 |
+| v43 with widening 1.5 (v44) | 7 | 61,188 ±3,281 | 74,552 | 1 |
+| **v44 with sequential halving over 16 root actions (v45)** | 14 | **67,313 ±3,944** | **108,536** | 5 |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
