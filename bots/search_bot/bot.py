@@ -31,7 +31,7 @@ WIDENING, EXPLORATION = 3.0, 0.5
 VALUE_WEIGHT = 0.3
 POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT = 60, 4, 0.0
 POLICY_PUCT = 0.3  # Used only if policy_net.bin is in this folder.
-TREE_DEPTH, TREE_VISITS = 1, 0  # Used only if tree_net.bin is in this folder too.
+TREE_DEPTH, TREE_VISITS = 1, 1  # Used only if tree_net.bin is in this folder too.
 
 
 class Observation(ctypes.Structure):
