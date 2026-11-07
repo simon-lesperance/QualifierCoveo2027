@@ -87,3 +87,5 @@ On the server, v45 averaged about 66,700 over its first 11 volcanic games and sc
 | Depth 6 | +174 ±603 |
 
 None of these is clearly better, so v45 stays as it is. Using the net two levels deep, which was level before halving, now loses badly.
+
+Training ds32 for 60 minutes instead of 20 raised top-move agreement from 76% to 77% but gained only +149 ±546 in the search (180 games), so the 20-minute net stays.
