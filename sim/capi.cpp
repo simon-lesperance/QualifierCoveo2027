@@ -51,6 +51,17 @@ SIM_EXPORT int sim_agent_load_policy(void* agent, const char* path, double puct)
     return 1;
 }
 
+// Returns 0 if the file can't be read. Orders moves inside the tree, down to depth. Never freed.
+SIM_EXPORT int sim_agent_load_tree_policy(void* agent, const char* path, int depth, int visits) {
+    auto* net = new sim::PolicyNet();
+    if (!net->load(path)) {
+        delete net;
+        return 0;
+    }
+    static_cast<sim::Agent*>(agent)->set_tree_policy(net, depth, visits);
+    return 1;
+}
+
 SIM_EXPORT void sim_agent_set_waves(void* agent, int pocket_limit, int pocket_targets, double pocket_weight) {
     static_cast<sim::Agent*>(agent)->set_waves(pocket_limit, pocket_targets, pocket_weight);
 }

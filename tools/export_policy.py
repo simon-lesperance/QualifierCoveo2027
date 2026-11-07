@@ -17,7 +17,7 @@ def main() -> None:
     parser.add_argument("checkpoint", type=Path)
     args = parser.parse_args()
     state = torch.load(args.checkpoint, map_location="cpu")
-    net = PolicyNet(state["channels"])
+    net = PolicyNet(state["channels"], state.get("hidden", 128))
     net.load_state_dict(state["net"])
     net.eval()
     folder = args.checkpoint.parent
