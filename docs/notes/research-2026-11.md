@@ -134,9 +134,9 @@ Against v45 with CRN (v46):
 | ds32 only on depth-1 nodes with 12 / 6 visits | -1,547 ±555 / -997 ±586 |
 | Value weight 0.3 / 0.5 | +28 ±590 / +110 ±543 |
 | ds32 fine-tuned towards the teacher only, at search positions (ex3) | -763 ±592 |
-| 32 halving actions | -2,123 ±604 |
+| 12 / 20 / 32 halving actions | -1,583 ±543 / +710 ±571 / -2,123 ±604 |
+| 20 / 24 halving actions on fresh seeds 10000+ | -570 ±613 / +349 ±618 |
 | Halving budget front-loaded (skew 0.5) / back-loaded (skew -0.3) | -473 ±544 / -1,441 ±530 |
-| 24 halving actions on fresh seeds 10000+ | +349 ±618, 17 games at 80k+ against 13 |
 | Widening 2 / depth 6 | -956 ±564 / -1,189 ±583 |
 
 Notes:
