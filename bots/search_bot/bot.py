@@ -45,6 +45,7 @@ WIDENING, EXPLORATION = 1.5, 0.35
 VALUE_WEIGHT = 0.4
 POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT = 60, 4, 0.0
 POLICY_PUCT = 0.3  # Used only if policy_net.bin is in this folder.
+ROOT_HALVING = 16  # Root actions tried by sequential halving; 0 keeps UCT at the root.
 TREE_DEPTH, TREE_VISITS = 1, 0  # Used only if tree_net.bin is in this folder too.
 
 
@@ -89,6 +90,8 @@ def load_library() -> ctypes.CDLL:
     library.sim_agent_load_policy.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_double]
     library.sim_agent_load_tree_policy.restype = ctypes.c_int
     library.sim_agent_load_tree_policy.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+    library.sim_agent_set_root_halving.restype = None
+    library.sim_agent_set_root_halving.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_double]
     library.sim_agent_set_volcano_rank.restype = None
     library.sim_agent_set_volcano_rank.argtypes = [ctypes.c_void_p, ctypes.c_int]
     library.sim_agent_set_waves.restype = None
@@ -146,6 +149,8 @@ class Bot:
                 print(f"TREE loaded={loaded} depth={TREE_DEPTH} visits={TREE_VISITS}", flush=True)
         LIBRARY.sim_agent_set_waves(self.agent, POCKET_LIMIT, POCKET_TARGETS, POCKET_WEIGHT)
         LIBRARY.sim_agent_set_volcano_rank(self.agent, 1)
+        LIBRARY.sim_agent_set_root_halving(self.agent, ROOT_HALVING, 0.0)
+        print(f"HALVING actions={ROOT_HALVING}", flush=True)
         self.observation = Observation()
         self.spent = []
         self.spent_ms = []
