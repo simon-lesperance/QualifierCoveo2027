@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from distill_policy import DepthwiseNet, export_depthwise
 from train_ppo import PolicyNet, VecEnv, build_inputs, export
 
 
@@ -17,11 +18,16 @@ def main() -> None:
     parser.add_argument("checkpoint", type=Path)
     args = parser.parse_args()
     state = torch.load(args.checkpoint, map_location="cpu")
-    net = PolicyNet(state["channels"], state.get("hidden", 128))
-    net.load_state_dict(state["net"])
-    net.eval()
     folder = args.checkpoint.parent
-    export(net, folder / "policy_net.bin")
+    if "blocks.0.spatial.weight" in state["net"]:
+        net = DepthwiseNet(state["channels"], state["hidden"])
+        net.load_state_dict(state["net"])
+        export_depthwise(net, folder / "policy_net.bin")
+    else:
+        net = PolicyNet(state["channels"], state.get("hidden", 128))
+        net.load_state_dict(state["net"])
+        export(net, folder / "policy_net.bin")
+    net.eval()
 
     env = VecEnv(16, 1, 7, "export", True)
     features = torch.from_numpy(env.features.copy())

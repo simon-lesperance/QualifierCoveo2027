@@ -48,6 +48,9 @@ struct AgentConfig {
     double prior_floor = 0.1;    // Share of the prior spread over all actions, so none is ruled out.
     int policy_cost = 1500;      // Simulated ticks charged per evaluation, so tests stay fair on time.
     bool policy_only = false;    // Plays the policy's top action, with no search.
+    int root_halving = 0;        // Above 0, the root tries this many actions by sequential halving.
+    double halving_prior = 0;    // How much the prior counts when halving.
+    double tree_puct = 0;        // Above 0, nodes ranked by the tree net also use its prior this way.
     PolicyNet* tree_policy = nullptr;  // A cheaper net for inside the tree. Without it, policy does that too.
     int policy_depth = 0;        // Also orders the widening of nodes down to this depth.
     int policy_tree_cost = 0;    // Simulated ticks charged for each of those evaluations.
@@ -173,6 +176,7 @@ private:
     std::vector<double> flood_bonus_;  // Parallel to ranked_volcanoes_.
     std::vector<RootVisit> root_visits_;
     std::vector<Gap> gaps_;
+    int last_iterations_ = 60;
 };
 
 }  // namespace sim

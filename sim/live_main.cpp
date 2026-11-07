@@ -122,6 +122,9 @@ int main(int argc, char** argv) {
         else if (name == "--prior-floor") config.prior_floor = std::atof(argv[i + 1]);
         else if (name == "--policy") policy_path = argv[i + 1];
         else if (name == "--tree-policy") tree_policy_path = argv[i + 1];
+        else if (name == "--root-halving") config.root_halving = value;
+        else if (name == "--halving-prior") config.halving_prior = std::atof(argv[i + 1]);
+        else if (name == "--tree-puct") config.tree_puct = std::atof(argv[i + 1]);
         else if (name == "--policy-only") config.policy_only = value != 0;
         else if (name == "--policy-depth") config.policy_depth = value;
         else if (name == "--policy-tree-cost") config.policy_tree_cost = value;
