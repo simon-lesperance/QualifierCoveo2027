@@ -74,7 +74,7 @@ Against v37 on these seeds, v45's setup is +6,896 ±512 and halving with widenin
 Other nets in place of ds32 all lost: 24 channels -737 ±741, 48 channels -1,677 ±683, a copy of the
 plan-start PPO net -423 ±618 (120 games each). A prior at depth-1 nodes lost 462 ±731.
 
-On the server, v45 averaged about 66,700 over its first 11 volcanic games and scored 108,536.
+On the server, v45 averaged 64,831 ±1,752 over 42 volcanic games, with 10 at 70k+, 2 at 90k+ and a best of 108,536.
 
 ### Around v45 (halving 16, widening 1.5), 180 fresh paired games
 
