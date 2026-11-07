@@ -48,8 +48,10 @@ struct AgentConfig {
     double prior_floor = 0.1;    // Share of the prior spread over all actions, so none is ruled out.
     int policy_cost = 1500;      // Simulated ticks charged per evaluation, so tests stay fair on time.
     bool policy_only = false;    // Plays the policy's top action, with no search.
+    PolicyNet* tree_policy = nullptr;  // A cheaper net for inside the tree. Without it, policy does that too.
     int policy_depth = 0;        // Also orders the widening of nodes down to this depth.
     int policy_tree_cost = 0;    // Simulated ticks charged for each of those evaluations.
+    int policy_tree_visits = 0;  // Waits for this many visits, so rarely seen nodes cost nothing.
 
     // Plans include waves at guessed tiles, drawn afresh each iteration. When the spawn
     // area is small, a meteor timed for the wave's first tick can kill all of it.
