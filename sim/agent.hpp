@@ -112,6 +112,11 @@ public:
         config_.policy = policy;
         config_.puct = puct;
     }
+    void set_tree_policy(PolicyNet* policy, int depth, int visits) {
+        config_.tree_policy = policy;
+        config_.policy_depth = depth;
+        config_.policy_tree_visits = visits;
+    }
     void set_volcano_rank(bool on) { config_.volcano_rank = on; }
     void set_flood_weight(double weight) { config_.flood_weight = weight; }
     void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {
