@@ -19,6 +19,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import platform_paths
+
 ROOT = Path(__file__).resolve().parent.parent
 SIZE = 20
 CELLS = SIZE * SIZE
@@ -34,7 +36,7 @@ PLANES = CHANNELS + 1 + 2 + GLOBALS + 4 + 4
 
 class VecEnv:
     def __init__(self, envs: int, threads: int, biomes: int, prefix: str, desync: bool):
-        self.lib = ctypes.CDLL(str(ROOT / "build" / "libvec.dll"))
+        self.lib = ctypes.CDLL(str(platform_paths.BUILD / platform_paths.library_name("vec")))
         self.lib.vec_create.restype = ctypes.c_void_p
         self.lib.vec_create.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
         self.lib.vec_observe.argtypes = [ctypes.c_void_p] + [ctypes.c_void_p] * 2
