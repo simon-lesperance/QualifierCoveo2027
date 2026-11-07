@@ -118,7 +118,7 @@ def main() -> None:
         ticks[slots] = now_ticks
         position = (position + args.envs) % args.buffer
         used = min(args.buffer, used + args.envs)
-        if used < 200 * args.envs:
+        if used < min(args.buffer // 2, 200 * args.envs):
             continue
 
         progress = (now - start) / total_seconds
