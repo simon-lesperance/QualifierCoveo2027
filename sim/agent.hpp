@@ -141,6 +141,7 @@ public:
         config_.halving_crn = crn;
         config_.halving_max = max_weight;
     }
+    void set_tree_reuse(int mode) { config_.tree_reuse = mode; }
     void set_volcano_rank(bool on) { config_.volcano_rank = on; }
     void set_flood_weight(double weight) { config_.flood_weight = weight; }
     void set_waves(int pocket_limit, int pocket_targets, double pocket_weight) {

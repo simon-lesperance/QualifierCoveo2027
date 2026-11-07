@@ -500,6 +500,11 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                                 if (edge.child >= 0) edge.child += base;
                                 edge.total -= shift * edge.visits;
                                 edge.best -= shift;
+                                if (edge.visits > 0) {
+                                    // UCT below needs a reward range before the first new result.
+                                    lowest_reward = std::min(lowest_reward, edge.total / edge.visits);
+                                    highest_reward = std::max(highest_reward, edge.total / edge.visits);
+                                }
                             }
                         }
                         tree.insert(tree.end(), kept_->nodes.begin(), kept_->nodes.end());
