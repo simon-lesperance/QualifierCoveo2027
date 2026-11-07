@@ -89,3 +89,64 @@ On the server, v45 averaged 64,831 ±1,752 over 42 volcanic games, with 10 at 70
 None of these is clearly better, so v45 stays as it is. Using the net two levels deep, which was level before halving, now loses badly.
 
 Training ds32 for 60 minutes instead of 20 raised top-move agreement from 76% to 77% but gained only +149 ±546 in the search (180 games), so the 20-minute net stays.
+
+## Gumbel follow-ups, 2026-11-07
+
+Halving at the root was the night's biggest gain, so the day went to work that builds on Gumbel
+MuZero and AlphaZero.
+
+### Sources
+
+- **Variance reduction in MCTS** ([Veness, Lanctot and Bowling, NIPS 2011](https://proceedings.neurips.cc/paper_files/paper/2011/file/d736bb10d83a904aefc1d6ce93dc54b8-Paper.pdf)). Common random numbers, antithetic variates and control variates, tested on stochastic single-player games (Pig, Can't Stop, Dominion). It led to the one gain of the day: giving every root action the same dice.
+- **H-MCTS and SHOT** ([Pepels, Cazenave, Winands and Lanctot, 2014](https://www.lamsade.dauphine.fr/~cazenave/papers/PepelsCGW2014.pdf)). Sequential halving recursively near the root, and UCT below it. In partially observable games ([Pepels et al., 2016](https://cris.maastrichtuniversity.nl/en/publications/sequential-halving-for-partially-observable-games)), flat halving at the root was best in Phantom Go and H-MCTS in Go Fish. Not tried: our depth-1 nodes get about 9-140 visits, and narrower trees have always lost here.
+- **Anytime sequential halving** ([Sagers, Winands and Soemers, 2024](https://arxiv.org/abs/2411.07171)). Halving without a known budget. We size rounds from the last tick's iteration count, which is almost constant locally (about 460 or 595 iterations). It could matter on the server, where stalls cut the search short.
+- **Twice Sequential Monte Carlo Tree Search** ([2025](https://arxiv.org/abs/2511.14220)). Halving at the root over particle searches, which beat Gumbel MCTS at about 24 simulations on Jumanji and Brax. Our budget is about 500 iterations, so the tree below the root is not the weak point.
+- **Boltzmann tree search, DENTS** ([Painter et al., NeurIPS 2023](https://papers.neurips.cc/paper_files/paper/2023/file/f670ef96387d9a5a8a51e2ed80cb148d-Paper-Conference.pdf)). Boltzmann exploration in place of UCT. It mainly helps exploration under sparse rewards, which isn't our problem.
+- **MiniZero** ([Wu et al., 2023](https://arxiv.org/abs/2310.11305)) and **Gumbel search for LLM reasoning** ([2026](https://arxiv.org/abs/2603.21162)). Both find Gumbel root search clearly better than PUCT at small budgets, and close at large ones.
+- **GAZ Play-to-Plan** ([Pirnay et al., ICLR 2023](https://arxiv.org/abs/2306.04403)). Single-player Gumbel AlphaZero that plans against its past policy. It's a training method for deterministic puzzles.
+- **Learned planning budgets** ([Muppidi et al., 2026](https://arxiv.org/abs/2606.26463)). A small PPO gate picks how long an AlphaZero planner thinks at each step. The server's per-tick limit leaves us no time to bank, so this is closest to the phase budget idea.
+- **KataGo** ([Wu, 2019](https://arxiv.org/abs/1902.10565)). Forced playouts, policy target pruning and FPU reduction are mostly training-side.
+
+### What we measured
+
+The search now runs about 460-595 iterations per tick (logged as the 7th CSV column). Over 612 searched ticks
+of one game, the chosen action was the policy's top action only 24% of the time, and the most-visited one
+86% of the time.
+
+Paired local tests, 180 games on seeds 9000+ (60 per biome), against v45 unless noted:
+
+| Change | Result |
+|---|---|
+| **CRN: the k-th visit of every root action draws the same dice** | **+1,473 ±523** |
+| CRN on fresh seeds 10000+, against v45 there | **+1,155 ±563**, 13 games at 80k+ against 7 |
+| Halving ranks by mean + 0.1 / 0.3 of (best - mean) | +550 ±564 / -920 ±611 |
+
+Against v45 with CRN (v46):
+
+| Change | Result |
+|---|---|
+| Keep the played action's subtree, below the new root's actions | -731 ±562 |
+| The same, also counting its visits at the root | -1,731 ±552 |
+| ds32 fine-tuned on the search's choices and visits (ex1), everywhere / in the tree only | -623 ±587 / -24 ±570 |
+| ds32 fine-tuned on the search's choices, closer to the teacher (ex2) | -603 ±601 |
+| 24 halving actions | -423 ±623, best 116,176, 14 games at 80k+ against 10 |
+| Halving ranks by mean + 0.1 of (best - mean) | -1,276 ±573 |
+| ds32 only on depth-1 nodes with 12 / 6 visits | -1,547 ±555 / -997 ±586 |
+| Value weight 0.3 / 0.5 | +28 ±590 / +110 ±543 |
+| ds32 fine-tuned towards the teacher only, at search positions (ex3) | -763 ±592 |
+| 32 halving actions | -2,123 ±604 |
+| Halving budget front-loaded (skew 0.5) / back-loaded (skew -0.3) | -473 ±544 / -1,441 ±530 |
+| 24 halving actions on fresh seeds 10000+ | +349 ±618, 17 games at 80k+ against 13 |
+| Widening 2 / depth 6 | -956 ±564 / -1,189 ±583 |
+
+Notes:
+
+- **CRN** pairs the root actions: with sequential halving, each action's k-th visit replays the same
+  guess at the hidden dice, so a comparison isn't swamped by dice luck. It costs nothing.
+- **Tree reuse** loses because last tick's statistics average over dice outcomes that didn't happen,
+  and they crowd out fresh visits.
+- **Expert iteration** (fine-tuning ds32 towards the search's decisions, as in AlphaZero) used 300
+  search games on seeds 20000+ (`runs/dumps/crn1`, 184k positions, `tools/search_finetune.py`). The
+  search's choice is hard to predict: agreement rose only from 22% to 25%, and the net drifted from the
+  teacher. This matches the earlier finding that imitating MCTS visits plays badly.
+- **Ranking every depth-1 node is worth its cost**, even though it takes about a fifth of the budget.

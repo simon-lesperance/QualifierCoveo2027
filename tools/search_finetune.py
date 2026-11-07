@@ -73,6 +73,7 @@ def main() -> None:
     parser.add_argument("--batch", type=int, default=1024)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--kl-weight", type=float, default=1.0)
+    parser.add_argument("--ce-weight", type=float, default=1.0, help="0 trains on the teacher alone, at search positions")
     parser.add_argument("--temperature", type=float, default=2.0)
     parser.add_argument("--mix", type=float, default=0.5, help="Share of the target from halving visits")
     parser.add_argument("--power", type=float, default=2.0)
@@ -113,7 +114,7 @@ def main() -> None:
             teacher_log = F.log_softmax(teacher_logits / args.temperature, dim=1)
             student_log = F.log_softmax(logits / args.temperature, dim=1)
             kl = (teacher_log.exp() * (teacher_log - student_log)).where(mask, 0.0).sum(dim=1).mean()
-            loss = ce + args.kl_weight * kl
+            loss = args.ce_weight * ce + args.kl_weight * kl
         with torch.no_grad():
             top16 = logits.topk(ARMS, dim=1).indices
             stats = torch.stack([
