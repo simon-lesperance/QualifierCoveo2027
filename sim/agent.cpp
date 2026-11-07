@@ -304,6 +304,14 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
     std::vector<int> alive;  // Sequential halving: root edges still in the running.
     int rounds = 1;
     int round_target = 1;
+    int round = 0;
+    // Share of last tick's iterations for each visit of a surviving action in round r.
+    auto round_share = [&](int r, int alive_count) {
+        double total = 0;
+        for (int i = 0; i < rounds; i++) total += std::pow(1 + config_.halving_skew, -i);
+        double weight = std::pow(1 + config_.halving_skew, -r) * rounds / total;
+        return std::max(1, static_cast<int>(weight * last_iterations_ / (rounds * alive_count)));
+    };
 
     // The prior of each action at the root, by action code.
     std::vector<float> prior;
@@ -397,7 +405,8 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             };
             std::stable_sort(alive.begin(), alive.end(), [&](int a, int b) { return rank(a) > rank(b); });
             alive.resize((alive.size() + 1) / 2);
-            round_target += std::max(1, last_iterations_ / (rounds * static_cast<int>(alive.size())));
+            round++;
+            round_target += round_share(round, static_cast<int>(alive.size()));
             pick = least_visited();
         }
         return pick;
@@ -490,7 +499,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                         alive.push_back(i);
                     }
                     rounds = std::max(1, static_cast<int>(std::ceil(std::log2(std::max(2, count)))));
-                    round_target = std::max(1, last_iterations_ / (rounds * count));
+                    round_target = round_share(0, count);
                     if (config_.tree_reuse > 0 && kept_ && kept_->tick == tick && !kept_->nodes.empty()) {
                         // Last tick's search below the action actually played, shifted to this root's score.
                         double shift = root.score() - kept_->root_score;

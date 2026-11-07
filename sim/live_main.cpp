@@ -147,6 +147,7 @@ int main(int argc, char** argv) {
         else if (name == "--halving-prior") config.halving_prior = std::atof(argv[i + 1]);
         else if (name == "--halving-crn") config.halving_crn = value != 0;
         else if (name == "--tree-reuse") config.tree_reuse = value;
+        else if (name == "--halving-skew") config.halving_skew = std::atof(argv[i + 1]);
         else if (name == "--dump") {
             dump_folder = argv[i + 1];
             config.record_search = true;

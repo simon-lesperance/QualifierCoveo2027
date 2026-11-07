@@ -52,6 +52,7 @@ struct AgentConfig {
     int root_halving = 0;        // Above 0, the root tries this many actions by sequential halving.
     double halving_prior = 0;    // How much the prior counts when halving.
     bool halving_crn = false;    // The k-th visit of every root action sees the same dice guess.
+    double halving_skew = 0;     // Round r gets budget in proportion to (1 + skew)^-r; 0 splits evenly.
     double halving_max = 0;      // Halving ranks by mean + halving_max * (best - mean).
     // With halving, keeps the chosen action's subtree for the next tick. 1 grafts it below the
     // new root's actions, 2 also counts its visits at the root, 0 starts afresh each tick.
