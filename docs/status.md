@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-08, 06:00. This page goes stale fast, so check the date.
+Last updated: 2026-11-08, 08:15. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -49,7 +49,7 @@ counts volcanic games only.
 | v43 with widening 1.5 (v44) | 7 | 61,188 ±3,281 | 74,552 | 1 |
 | v44 with sequential halving over 16 root actions (v45) | 42 | 64,831 ±1,752 | 108,536 | 10 |
 | v45 with common random numbers in the halving (v46) | 82 | 67,999 ±1,337 | **119,482** | 27 |
-| v46 with a faster value net, about 14% more search (v47) | 55 | 67,239 ±1,463 | 102,492 | 16 |
+| v46 with a faster value net, about 14% more search (v47) | 110 | 67,620 ±1,120 | 119,353 | 33 |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.

@@ -172,8 +172,12 @@ value net about 30%, tree policy net about 12%. Inside a step, dinosaur moves ar
 | Branch-free passes for lava-flow danger | No faster | |
 
 The value net change is v47 (uploaded 01:20). On the server the median simulated count per tick rose from
-8,601 (v46, 82 games) to 9,753 (v47, 55 games), which is about budget 8,300 in local units after the 1,500
+8,601 (v46, 82 games) to 9,675 (v47, 102 games), which is about budget 8,300 in local units after the 1,500
 root charge.
+
+Over the night v47 played 110 `volcanic_plains` games on the server: mean 67,620 ±1,120, best 119,353
+(129 short of v46's 119,482), 3 games at 100k+. That matches v46 (67,999 ±1,337 on 82 games), so the extra
+search shows no gain on the server either, and the best score still comes down to a lucky map.
 
 ### Where the search goes wrong
 
