@@ -63,6 +63,7 @@ struct AgentConfig {
     int policy_depth = 0;        // Also orders the widening of nodes down to this depth.
     int policy_tree_cost = 0;    // Simulated ticks charged for each of those evaluations.
     int policy_tree_visits = 0;  // Waits for this many visits, so rarely seen nodes cost nothing.
+    int policy_deep_visits = 0;  // Below depth 1, waits for this many visits instead.
 
     // Plans include waves at guessed tiles, drawn afresh each iteration. When the spawn
     // area is small, a meteor timed for the wave's first tick can kill all of it.

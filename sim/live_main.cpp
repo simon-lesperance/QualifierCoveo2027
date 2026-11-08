@@ -31,6 +31,12 @@ struct Result {
 
 // log_folder, if set, gets one csv per game: tick, score, kills, alive, lava tiles, spawn tiles.
 std::string dump_folder;  // If set, gets one file of search records per game.
+// If set, a second agent with this budget and oracle_arms halving actions searches every
+// oracle_every ticks, and <log>/<game>-oracle.csv compares its choice with the bot's.
+int oracle_budget = 0;
+std::string oracle_dump;  // If set, gets one file of the oracle's search records per game.
+int oracle_every = 10;
+int oracle_arms = 48;
 std::string rng_tag;  // Keeps a seed's map but changes its dice, to separate the two.
 int frame_every = 0;
 int frame_first = 0;
@@ -40,6 +46,19 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
     sim::Terrain terrain(seed, biome);
     sim::Game game(terrain, seed + rng_tag);
     sim::Agent agent(config);
+    sim::AgentConfig oracle_config = config;
+    oracle_config.sim_budget = oracle_budget;
+    oracle_config.root_halving = oracle_arms;
+    sim::Agent oracle(oracle_config);
+    bool oracle_warm = false;
+    std::FILE* oracle_records = nullptr;
+    if (oracle_budget > 0 && !oracle_dump.empty()) {
+        oracle_records = std::fopen((oracle_dump + "/" + biome + "-" + seed + ".bin").c_str(), "wb");
+    }
+    std::FILE* oracle_log = nullptr;
+    if (oracle_budget > 0 && !log_folder.empty()) {
+        oracle_log = std::fopen((log_folder + "/" + biome + "-" + seed + "-oracle.csv").c_str(), "w");
+    }
     bool experiment = config.reveal_rows || config.reveal_rng || config.reveal_waves;
     int last_id = 0;
     std::FILE* log = nullptr;
@@ -50,6 +69,36 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
         sim::Observation observation = game.observe(tick);
         game.step(tick, agent.act(observation, experiment ? &game : nullptr));
         const sim::Agent::SearchRecord& record = agent.last_record();
+        if ((oracle_log != nullptr || oracle_records != nullptr) && record.tick == tick && tick % oracle_every == 0) {
+            if (!oracle_warm) oracle.act(observation, nullptr);  // Sizes its halving rounds.
+            oracle_warm = true;
+            oracle.act(observation, nullptr);
+            const sim::Agent::SearchRecord& big = oracle.last_record();
+            // tick, bot's choice, oracle's choice, the oracle choice's rank in the policy's order,
+            // and the visits the oracle gave its choice and the bot's choice.
+            int rank = -1, big_visits = 0, mine_visits = 0;
+            for (size_t i = 0; i < big.arms.size(); i++) {
+                if (big.arms[i].first == big.chosen) { rank = static_cast<int>(i); big_visits = big.arms[i].second; }
+                if (big.arms[i].first == record.chosen) mine_visits = big.arms[i].second;
+            }
+            if (big.tick == tick && oracle_records != nullptr && big.features.size() == sim::kPolicyBytes) {
+                // Features, then int16 tick, chosen code, arm count, and 48 (code, visits) pairs.
+                constexpr int kArms = 48;
+                int16_t header[3] = {static_cast<int16_t>(tick), static_cast<int16_t>(big.chosen),
+                                     static_cast<int16_t>(std::min<size_t>(kArms, big.arms.size()))};
+                int16_t arms[2 * kArms] = {};
+                for (size_t i = 0; i < big.arms.size() && i < kArms; i++) {
+                    arms[2 * i] = static_cast<int16_t>(big.arms[i].first);
+                    arms[2 * i + 1] = static_cast<int16_t>(std::min(30000, big.arms[i].second));
+                }
+                std::fwrite(big.features.data(), 1, big.features.size(), oracle_records);
+                std::fwrite(header, sizeof(header), 1, oracle_records);
+                std::fwrite(arms, sizeof(arms), 1, oracle_records);
+            }
+            if (big.tick == tick && oracle_log != nullptr) {
+                std::fprintf(oracle_log, "%d,%d,%d,%d,%d,%d\n", tick, record.chosen, big.chosen, rank, big_visits, mine_visits);
+            }
+        }
         if (dump != nullptr && record.tick == tick && record.features.size() == sim::kPolicyBytes) {
             // Features, then int16 tick, chosen code, arm count, and 16 (code, visits) pairs.
             int16_t header[3] = {static_cast<int16_t>(tick), static_cast<int16_t>(record.chosen),
@@ -95,6 +144,8 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
     }
     if (log != nullptr) std::fclose(log);
     if (dump != nullptr) std::fclose(dump);
+    if (oracle_log != nullptr) std::fclose(oracle_log);
+    if (oracle_records != nullptr) std::fclose(oracle_records);
     return {game.score(), game.total_kills(), last_id};
 }
 
@@ -158,6 +209,14 @@ int main(int argc, char** argv) {
         else if (name == "--policy-depth") config.policy_depth = value;
         else if (name == "--policy-tree-cost") config.policy_tree_cost = value;
         else if (name == "--policy-tree-visits") config.policy_tree_visits = value;
+        else if (name == "--policy-deep-visits") config.policy_deep_visits = value;
+        else if (name == "--oracle-budget") {
+            oracle_budget = value;
+            config.record_search = true;
+        }
+        else if (name == "--oracle-every") oracle_every = value;
+        else if (name == "--oracle-dump") oracle_dump = argv[i + 1];
+        else if (name == "--oracle-arms") oracle_arms = value;
         else if (name == "--log") log_folder = argv[i + 1];
         else if (name == "--rng-tag") rng_tag = argv[i + 1];
         else if (name == "--dice") config.dice = value;

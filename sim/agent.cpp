@@ -458,7 +458,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                 tree[node].opened = true;
             }
             if (config_.policy != nullptr && depth >= 1 && depth <= config_.policy_depth && !tree[node].ranked &&
-                tree[node].visits >= config_.policy_tree_visits) {
+                tree[node].visits >= (depth == 1 ? config_.policy_tree_visits : config_.policy_deep_visits)) {
                 uint8_t features[kPolicyBytes];
                 encode_policy_features(game, turn, features);
                 float logits[PolicyNet::kActions];
