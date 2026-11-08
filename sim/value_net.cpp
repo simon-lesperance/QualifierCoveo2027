@@ -77,17 +77,28 @@ bool ValueNet::load(const char* path) {
 }
 
 float ValueNet::evaluate(const uint8_t* features) const {
+    // Sizes known at compile time let the compiler vectorize every inner loop.
+    if (first_ == 12 && second_ == 16 && hidden_ == 32) return evaluate_sized<12, 16, 32>(features);
+    return evaluate_sized<0, 0, 0>(features);
+}
+
+template <int kFirst, int kSecond, int kHidden>
+float ValueNet::evaluate_sized(const uint8_t* features) const {
+    const int first = kFirst ? kFirst : first_;
+    const int second = kSecond ? kSecond : second_;
+    const int hidden_size = kHidden ? kHidden : hidden_;
+
     // At most 64 of each, set by what the training script can export.
     float layer1[kSize1 * kSize1 * 64];
     float layer2[kSize2 * kSize2 * 64];
     float hidden[256];
 
-    for (int i = 0; i < kSize1 * kSize1; i++) std::memcpy(layer1 + i * first_, conv1_bias_.data(), first_ * sizeof(float));
+    for (int i = 0; i < kSize1 * kSize1; i++) std::memcpy(layer1 + i * first, conv1_bias_.data(), first * sizeof(float));
 
     // The input is mostly zeros, so only non-zero bytes do any work.
     for (int channel = 0; channel < kChannels; channel++) {
         const uint8_t* plane = features + channel * kCells;
-        const float* channel_weights = conv1_weights_.data() + channel * 9 * first_;
+        const float* channel_weights = conv1_weights_.data() + channel * 9 * first;
         for (int cell = 0; cell < kCells; cell++) {
             if (plane[cell] == 0) continue;
             float value = plane[cell] / 255.0f;
@@ -100,57 +111,57 @@ float ValueNet::evaluate(const uint8_t* features) const {
                 for (int out_column = (column + 1) / 2 - (column & 1 ? 1 : 0); out_column <= (column + 1) / 2; out_column++) {
                     if (out_column >= kSize1) continue;
                     int kernel = kernel_row * 3 + column - 2 * out_column + 1;
-                    const float* weights = channel_weights + kernel * first_;
-                    float* target = layer1 + (out_row * kSize1 + out_column) * first_;
-                    for (int i = 0; i < first_; i++) target[i] += weights[i] * value;
+                    const float* weights = channel_weights + kernel * first;
+                    float* target = layer1 + (out_row * kSize1 + out_column) * first;
+                    for (int i = 0; i < first; i++) target[i] += weights[i] * value;
                 }
             }
         }
     }
-    for (int i = 0; i < kSize1 * kSize1 * first_; i++) layer1[i] = std::max(layer1[i], 0.0f);
+    for (int i = 0; i < kSize1 * kSize1 * first; i++) layer1[i] = std::max(layer1[i], 0.0f);
 
     for (int row = 0; row < kSize2; row++) {
         for (int column = 0; column < kSize2; column++) {
-            float* target = layer2 + (row * kSize2 + column) * second_;
-            std::memcpy(target, conv2_bias_.data(), second_ * sizeof(float));
+            float* target = layer2 + (row * kSize2 + column) * second;
+            std::memcpy(target, conv2_bias_.data(), second * sizeof(float));
             for (int kernel_row = 0; kernel_row < 3; kernel_row++) {
                 int in_row = 2 * row - 1 + kernel_row;
                 if (in_row < 0 || in_row >= kSize1) continue;
                 for (int kernel_column = 0; kernel_column < 3; kernel_column++) {
                     int in_column = 2 * column - 1 + kernel_column;
                     if (in_column < 0 || in_column >= kSize1) continue;
-                    const float* source = layer1 + (in_row * kSize1 + in_column) * first_;
-                    const float* weights = conv2_weights_.data() + (kernel_row * 3 + kernel_column) * first_ * second_;
-                    for (int in = 0; in < first_; in++) {
+                    const float* source = layer1 + (in_row * kSize1 + in_column) * first;
+                    const float* weights = conv2_weights_.data() + (kernel_row * 3 + kernel_column) * first * second;
+                    for (int in = 0; in < first; in++) {
                         float value = source[in];
                         if (value == 0.0f) continue;
-                        const float* column_weights = weights + in * second_;
-                        for (int i = 0; i < second_; i++) target[i] += column_weights[i] * value;
+                        const float* column_weights = weights + in * second;
+                        for (int i = 0; i < second; i++) target[i] += column_weights[i] * value;
                     }
                 }
             }
         }
     }
 
-    std::memcpy(hidden, fc1_bias_.data(), hidden_ * sizeof(float));
+    std::memcpy(hidden, fc1_bias_.data(), hidden_size * sizeof(float));
     // PyTorch flattens as channel, row, column, while layer2 keeps channels innermost.
-    for (int channel = 0; channel < second_; channel++) {
+    for (int channel = 0; channel < second; channel++) {
         for (int cell = 0; cell < kSize2 * kSize2; cell++) {
-            float value = std::max(layer2[cell * second_ + channel], 0.0f);
+            float value = std::max(layer2[cell * second + channel], 0.0f);
             if (value == 0.0f) continue;
-            const float* weights = fc1_weights_.data() + (channel * kSize2 * kSize2 + cell) * hidden_;
-            for (int i = 0; i < hidden_; i++) hidden[i] += weights[i] * value;
+            const float* weights = fc1_weights_.data() + (channel * kSize2 * kSize2 + cell) * hidden_size;
+            for (int i = 0; i < hidden_size; i++) hidden[i] += weights[i] * value;
         }
     }
     const uint8_t* globals = features + kChannels * kCells;
-    const float* global_weights = fc1_weights_.data() + (second_ * kSize2 * kSize2) * hidden_;
+    const float* global_weights = fc1_weights_.data() + (second * kSize2 * kSize2) * hidden_size;
     for (int g = 0; g < kGlobals; g++) {
         float value = globals[g] / 255.0f;
-        for (int i = 0; i < hidden_; i++) hidden[i] += global_weights[g * hidden_ + i] * value;
+        for (int i = 0; i < hidden_size; i++) hidden[i] += global_weights[g * hidden_size + i] * value;
     }
 
     float output = fc2_bias_;
-    for (int i = 0; i < hidden_; i++) output += fc2_weights_[i] * std::max(hidden[i], 0.0f);
+    for (int i = 0; i < hidden_size; i++) output += fc2_weights_[i] * std::max(hidden[i], 0.0f);
     return output;
 }
 

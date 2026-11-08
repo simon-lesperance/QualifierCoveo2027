@@ -21,8 +21,14 @@ import torch.nn.functional as F
 from distill_policy import DepthwiseNet, export_depthwise
 from train_ppo import FEATURE_BYTES, PolicyNet, build_inputs
 
-ARMS = 16
+ARMS = 16  # 48 for the oracle records of sim_live --oracle-dump; set by --arms.
 RECORD = FEATURE_BYTES + 6 + 4 * ARMS
+
+
+def set_arms(arms: int) -> None:
+    global ARMS, RECORD
+    ARMS = arms
+    RECORD = FEATURE_BYTES + 6 + 4 * ARMS
 
 
 def load(folders: list[Path]) -> tuple[list[np.ndarray], list[str]]:
@@ -80,7 +86,9 @@ def main() -> None:
     parser.add_argument("--holdout", type=float, default=0.1, help="Share of games kept for validation")
     parser.add_argument("--report-seconds", type=float, default=60)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--arms", type=int, default=16, help="Arms per record: 16 for --dump, 48 for --oracle-dump")
     args = parser.parse_args()
+    set_arms(args.arms)
     args.out.mkdir(parents=True, exist_ok=True)
     device = torch.device(args.device)
     torch.manual_seed(0)
@@ -116,18 +124,20 @@ def main() -> None:
             kl = (teacher_log.exp() * (teacher_log - student_log)).where(mask, 0.0).sum(dim=1).mean()
             loss = args.ce_weight * ce + args.kl_weight * kl
         with torch.no_grad():
-            top16 = logits.topk(ARMS, dim=1).indices
+            top16 = logits.topk(16, dim=1).indices
+            teacher16 = teacher_logits.topk(16, dim=1).indices
             stats = torch.stack([
                 ce.detach(), kl.detach(),
                 (logits.argmax(dim=1) == chosen).float().mean(),
                 (top16 == chosen.unsqueeze(1)).any(dim=1).float().mean(),
                 (teacher_logits.argmax(dim=1) == chosen).float().mean(),
+                (teacher16 == chosen.unsqueeze(1)).any(dim=1).float().mean(),
             ])
         return loss, stats
 
     def validate():
         net.eval()
-        totals = torch.zeros(5, device=device)
+        totals = torch.zeros(6, device=device)
         size = valid[0].shape[0]
         count = 0
         for begin in range(0, size, 4096):
@@ -140,7 +150,7 @@ def main() -> None:
 
     def describe(values):
         return (f"ce {values[0]:.3f} kl {values[1]:.3f} top1 {values[2]:.3f} "
-                f"chosen in top16 {values[3]:.3f} teacher top1 {values[4]:.3f}")
+                f"chosen in top16 {values[3]:.3f} teacher top1 {values[4]:.3f} teacher top16 {values[5]:.3f}")
 
     print("start  valid " + describe(validate()), flush=True)
     size = train[0].shape[0]

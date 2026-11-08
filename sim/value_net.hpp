@@ -16,6 +16,9 @@ public:
     float evaluate(const uint8_t* features) const;
 
 private:
+    template <int kFirst, int kSecond, int kHidden>
+    float evaluate_sized(const uint8_t* features) const;
+
     int first_ = 0;
     int second_ = 0;
     int hidden_ = 0;
