@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "game.hpp"
+#include "terrain_infer.hpp"
 #include "policy_net.hpp"
 #include "value_net.hpp"
 
@@ -75,7 +76,12 @@ struct AgentConfig {
     // Above 0, rollouts fire at the footprint covering the most points whenever it covers at
     // least this many dinosaurs, so a herd built in the tree pays off within the horizon.
     int rollout_fire = 0;
-    double group_weight = 0;     // Share of the best single footprint's points (multiplier included) added to each leaf.
+    double group_weight = 0;
+    // Infers the rows about to enter the frame from the rows seen so far (volcanic_plains),
+    // instead of assuming each copies the row above. infer_ms caps that work per tick; 0 lets
+    // it finish, which keeps tests deterministic.
+    bool terrain_infer = false;
+    double infer_ms = 0;     // Share of the best single footprint's points (multiplier included) added to each leaf.
 
     // With no volcano active, tries every mountain with lava alone, and triggers the one
     // that leaves the smallest spawn area if that is worth at least volcano_threshold.
@@ -158,6 +164,10 @@ public:
         config_.pocket_weight = pocket_weight;
     }
     void set_group_weight(double weight) { config_.group_weight = weight; }
+    void set_terrain_infer(bool on, double ms) {
+        config_.terrain_infer = on;
+        config_.infer_ms = ms;
+    }
     int last_simulated() const { return last_simulated_; }
 
     // Pauses of at least kGapMs between clock readings in the last timed search, as
@@ -216,6 +226,10 @@ private:
     int last_iterations_ = 60;
     std::shared_ptr<KeptTree> kept_;
     SearchRecord record_;
+    std::shared_ptr<TerrainInference> inference_;
+    RowForecast forecast_;
+    int seen_row_ = -1;  // Highest world row fed to inference_.
+    void update_forecast(const Observation& observation, Game& root);
 };
 
 }  // namespace sim

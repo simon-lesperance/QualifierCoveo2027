@@ -952,6 +952,24 @@ Action Agent::policy_action(const Game& root, int tick) {
     return action_from_code(best, root.origin_y());
 }
 
+void Agent::update_forecast(const Observation& observation, Game& root) {
+    if (!inference_) inference_ = std::make_shared<TerrainInference>("volcanic_plains");
+    // Each row is fed once, when it first appears: before any meteor can lower it.
+    int top = observation.origin_y + kHeight - 1;
+    for (int y = std::max(seen_row_ + 1, observation.origin_y); y <= top; y++) {
+        inference_->observe(y, observation.elevation + (y - observation.origin_y) * kWidth);
+    }
+    seen_row_ = std::max(seen_row_, top);
+    inference_->work(config_.infer_ms);
+    forecast_.first_y = top + 1;
+    forecast_.count = 0;
+    for (int i = 0; i < RowForecast::kMax - 1; i++) {
+        if (!inference_->predict(top + 1 + i, forecast_.elevation[i], forecast_.flags[i])) break;
+        forecast_.count++;
+    }
+    root.set_forecast(&forecast_);
+}
+
 Action Agent::act(const Observation& observation, const Game* truth) {
     last_simulated_ = 0;
     root_visits_.clear();
@@ -963,8 +981,11 @@ Action Agent::act(const Observation& observation, const Game* truth) {
     if (truth != nullptr) {
         root = *truth;
         root.hide(!config_.reveal_rows, !config_.reveal_rng, !config_.reveal_waves, rng_seed);
+        // Hiding the waves turned wave planning off; put back the live bot's guessed waves.
+        if (config_.plan_waves && !config_.reveal_waves) root.enable_waves(observation.tick, highest_id_);
         root.set_spawn_shield(config_.shield);
     }
+    if (config_.terrain_infer) update_forecast(observation, root);
     if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return Action{};
 
     if (config_.volcano_plan && root.volcano_count() == 0) {

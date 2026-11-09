@@ -10,7 +10,7 @@ namespace sim {
 
 namespace {
 
-constexpr int kGradients[8][2] = {{1, 1}, {-1, 1}, {1, -1}, {-1, -1}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+constexpr int kGradients[9][2] = {{1, 1}, {-1, 1}, {1, -1}, {-1, -1}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {0, 0}};
 
 double lerp(double from, double to, double weight) {
     return from + weight * (to - from);
@@ -95,10 +95,20 @@ double Terrain::noise(const Layer& layer, double x, double y) {
     double fraction_y = y - floor_y;
 
     const auto& table = layer.permutation;
-    int top_left = table[table[cell_x] + cell_y] & 7;
-    int bottom_left = table[table[cell_x] + cell_y + 1] & 7;
-    int top_right = table[table[cell_x + 1] + cell_y] & 7;
-    int bottom_right = table[table[cell_x + 1] + cell_y + 1] & 7;
+    int top_left, bottom_left, top_right, bottom_right;
+    if (layer.grid != nullptr) {
+        const uint8_t* left = layer.grid + cell_x * layer.grid_rows + cell_y;
+        const uint8_t* right = left + layer.grid_rows;
+        top_left = left[0];
+        bottom_left = left[1];
+        top_right = right[0];
+        bottom_right = right[1];
+    } else {
+        top_left = table[table[cell_x] + cell_y] & 7;
+        bottom_left = table[table[cell_x] + cell_y + 1] & 7;
+        top_right = table[table[cell_x + 1] + cell_y] & 7;
+        bottom_right = table[table[cell_x + 1] + cell_y + 1] & 7;
+    }
 
     double a = gradient(top_left, fraction_x, fraction_y);
     double b = gradient(top_right, fraction_x - 1, fraction_y);
@@ -157,16 +167,27 @@ void Terrain::row(int y, int width, uint8_t* elevation, uint8_t* flags) const {
     for (int x = 0; x < width; x++) {
         double total = 0;
         for (const Layer& layer : layers_) total += sample(layer, x, y);
-
-        double level = js_round((total + 1) / 2 * max_elevation_);
-        int height = level < 0 ? 0 : (level > max_elevation_ ? max_elevation_ : static_cast<int>(level));
-
-        uint8_t tile = 0;
-        if (height >= mountain_min_) tile = kImpassable | kMountain;
-        if (height <= impassable_max_) tile = kImpassable;
+        int height = height_from_total(total);
         elevation[x] = static_cast<uint8_t>(height);
-        flags[x] = tile;
+        flags[x] = flags_for_height(height);
     }
+}
+
+int Terrain::height_from_total(double total) const {
+    double level = js_round((total + 1) / 2 * max_elevation_);
+    return level < 0 ? 0 : (level > max_elevation_ ? max_elevation_ : static_cast<int>(level));
+}
+
+uint8_t Terrain::flags_for_height(int height) const {
+    uint8_t tile = 0;
+    if (height >= mountain_min_) tile = kImpassable | kMountain;
+    if (height <= impassable_max_) tile = kImpassable;
+    return tile;
+}
+
+void Terrain::set_gradient_grid(int index, const uint8_t* grid, int rows) {
+    layers_[index].grid = grid;
+    layers_[index].grid_rows = rows;
 }
 
 }  // namespace sim

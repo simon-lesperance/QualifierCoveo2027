@@ -544,6 +544,11 @@ void Game::frame_shift(int turn) {
     std::memset(corpses_ + kKept, 0, kWidth);
     if (terrain_ != nullptr) {
         terrain_->row(origin_y_ + kHeight - 1, kWidth, elevation_ + kKept, flags_ + kKept);
+    } else if (forecast_ != nullptr && origin_y_ + kHeight - 1 >= forecast_->first_y &&
+               origin_y_ + kHeight - 1 < forecast_->first_y + forecast_->count) {
+        int index = origin_y_ + kHeight - 1 - forecast_->first_y;
+        std::memcpy(elevation_ + kKept, forecast_->elevation[index], kWidth);
+        std::memcpy(flags_ + kKept, forecast_->flags[index], kWidth);
     } else {
         // The new bottom row is unknown: assume it resembles the row above it.
         std::memcpy(elevation_ + kKept, elevation_ + kKept - kWidth, kWidth);

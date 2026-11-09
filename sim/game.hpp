@@ -73,6 +73,15 @@ struct Observation {
 };
 
 // All mutable game state. Trivially copyable, so search can branch with a plain copy.
+// Rows the live bot predicts will enter the frame, used in place of copying the last row.
+struct RowForecast {
+    static constexpr int kMax = 4;
+    int first_y = 0;
+    int count = 0;
+    uint8_t elevation[kMax][kWidth];
+    uint8_t flags[kMax][kWidth];
+};
+
 class Game {
 public:
     Game(const Terrain& terrain, std::string_view seed);
@@ -107,6 +116,7 @@ public:
     // Not in the real game. Lets a search measure what foreseeing spawns is worth:
     // a dinosaur survives any impact on the tick it spawns.
     void set_spawn_shield(bool on) { spawn_shield_ = on; }
+    void set_forecast(const RowForecast* forecast) { forecast_ = forecast; }
 
     // Tiles a new wave could spawn on right now.
     int spawn_tiles() const {
@@ -171,6 +181,7 @@ private:
     void build_packs(TickContext& ctx);
 
     const Terrain* terrain_;
+    const RowForecast* forecast_ = nullptr;
     Arc4 rng_;
 
     int16_t origin_y_ = 0;
