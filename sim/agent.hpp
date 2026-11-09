@@ -39,6 +39,7 @@ struct AgentConfig {
     // Scores what each MCTS iteration leaves behind, on top of the points it earned.
     const ValueNet* net = nullptr;
     double value_weight = 1;
+    const ValueNet* net2 = nullptr;  // If set, leaves use the mean of both nets, at twice the cost.
     int net_cost = 3;            // Simulated ticks charged per evaluation, so tests stay fair on time.
 
     // Ranks the root's actions, and steers visits there, as in AlphaZero. It can also
@@ -156,6 +157,7 @@ public:
         config_.pocket_targets = pocket_targets;
         config_.pocket_weight = pocket_weight;
     }
+    void set_group_weight(double weight) { config_.group_weight = weight; }
     int last_simulated() const { return last_simulated_; }
 
     // Pauses of at least kGapMs between clock readings in the last timed search, as

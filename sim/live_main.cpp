@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <atomic>
 #include <fstream>
+#include <functional>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -42,6 +43,7 @@ std::vector<std::string> seed_list;  // --seed-list: play these seeds (for examp
 std::string rng_tag;  // Keeps a seed's map but changes its dice, to separate the two.
 std::string data_folder;  // --data: writes value net samples from this bot's play.
 int data_every = 4;
+int wait_percent = 0;  // --wait: replaces this share of moves with doing nothing, for diverse value net data.
 int frame_every = 0;
 int frame_first = 0;
 int frame_last = 0;
@@ -82,7 +84,13 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
             data_features.resize(data_features.size() + sim::kFeatureBytes);
             sim::encode_features(leaf, tick + config.horizon, data_features.data() + data_features.size() - sim::kFeatureBytes);
         }
-        game.step(tick, agent.act(observation, experiment ? &game : nullptr));
+        sim::Action chosen = agent.act(observation, experiment ? &game : nullptr);
+        if (wait_percent > 0) {
+            uint32_t noise = static_cast<uint32_t>(tick) * 2654435761u ^ static_cast<uint32_t>(std::hash<std::string>{}(seed));
+            noise = noise * 1664525u + 1013904223u;
+            if (static_cast<int>((noise >> 16) % 100) < wait_percent) chosen = sim::Action{};
+        }
+        game.step(tick, chosen);
         data_score[tick] = game.score();
         data_kills[tick] = game.kills_this_tick();
         const sim::Agent::SearchRecord& record = agent.last_record();
@@ -212,6 +220,7 @@ int main(int argc, char** argv) {
     std::string biome_filter;
     sim::AgentConfig config;
     sim::ValueNet net;
+    sim::ValueNet net2;
     std::string policy_path;
     std::string tree_policy_path;
     std::string log_folder;
@@ -241,6 +250,7 @@ int main(int argc, char** argv) {
         else if (name == "--rollout-fire") config.rollout_fire = value;
         else if (name == "--data") data_folder = argv[i + 1];
         else if (name == "--data-every") data_every = value;
+        else if (name == "--wait") wait_percent = value;
         else if (name == "--group-weight") config.group_weight = std::atof(argv[i + 1]);
         else if (name == "--pocket-targets") config.pocket_targets = value;
         else if (name == "--policy-cost") config.policy_cost = value;
@@ -287,6 +297,13 @@ int main(int argc, char** argv) {
         else if (name == "--frame-first") frame_first = value;
         else if (name == "--frame-last") frame_last = value;
         else if (name == "--biome") biome_filter = argv[i + 1];
+        else if (name == "--net2") {
+            if (!net2.load(argv[i + 1])) {
+                std::fprintf(stderr, "could not load %s\n", argv[i + 1]);
+                return 1;
+            }
+            config.net2 = &net2;
+        }
         else if (name == "--net") {
             if (!net.load(argv[i + 1])) {
                 std::fprintf(stderr, "could not load %s\n", argv[i + 1]);

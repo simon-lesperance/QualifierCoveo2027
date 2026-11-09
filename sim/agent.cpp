@@ -714,7 +714,12 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                 uint8_t features[kFeatureBytes];
                 encode_features(game, next_tick, features);
                 double remaining = std::min(1.0, (kMaxTicks + 1 - next_tick) / kWindow);
-                reward += config_.value_weight * 1000 * remaining * config_.net->evaluate(features);
+                double value = config_.net->evaluate(features);
+                if (config_.net2 != nullptr) {
+                    value = 0.5 * (value + config_.net2->evaluate(features));
+                    budget -= config_.net_cost;
+                }
+                reward += config_.value_weight * 1000 * remaining * value;
                 budget -= config_.net_cost;
             }
             if (config_.pocket_weight > 0) reward += config_.pocket_weight * pocket_value(game, config_.pocket_limit);

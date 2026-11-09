@@ -105,6 +105,8 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Idea | Result |
 |---|---|
 | gen3, gen4 value nets with spawn-area inputs | Lost about 3,000-4,400, for reasons unknown, despite good R² |
+| gen5 value nets from 2,000 v47 games, and gen2 retrained on its own data | All lose 1,500-4,800 on 360 fresh games; v47 is tuned around gen2 |
+| Rollouts that fire at groups, group-potential leaf term | Within noise (best +692 ±598 on 360 fresh games) |
 | Value net from foresight rollouts (fg1) | 137,135-149,268 against 164,770 at width 200 |
 | Beam ancestry labels | One parent's children fill the beam: about 1 ancestor 20 ticks back |
 | Capping children per parent | 156,257-165,381 against 164,770, within noise |
