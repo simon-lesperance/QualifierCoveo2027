@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-08, 08:15. This page goes stale fast, so check the date.
+Last updated: 2026-11-08, 20:10. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -57,6 +57,7 @@ counts volcanic games only.
 
 - **The small tree net helps, if it's used sparingly.** It's a 16-channel copy of the PPO net that orders moves one level down. Used on every depth-1 node (v36), it left about 700 simulated ticks per move on the server, against about 5,000 for v35, and gained nothing. From a node's second visit (v37), it evaluates about 5 nodes per move and keeps about 4,700 ticks. With biomes weighted equally, v37 scored 54,283 ±897 on the server against 52,010 ±1,946 for v35, so +2,273 ±2,143.
 - **Local tests must charge server costs.** At a charge of 75 ticks per small-net evaluation, every depth-1 node looked like +2,553 ±382. At 460 ticks and 1,370 for the root net it's -1,638 ±677, which matches the server, while the second visit is +1,230 ±609 and the third +1,382 ±734, on 120 paired games. `simulated` in the BUDGET log includes a flat 1,500 charge for the root net, so subtract it.
+- **The gap to 160k-204k is in the plan, not in search or data.** An ablation shows every part of v47 helps, but four times the budget adds only +2,506. The bot kills 97% of what spawns, at 173 points per kill on server seeds, with 67% of points from ticks with 1-2 kills. 204k needs about 500 per kill: ticks of 10-20 kills. On its best local seed v47 averages 118,880 and peaked at 161,788. Server seeds can be replayed with `sim_live --seed-list`. See [notes/research-2026-11.md](notes/research-2026-11.md#good-seeds-and-ablation-2026-11-08).
 - **Tests should play `volcanic_plains` only**, since that's all the bot plays on the server: 180 games with `runs/tests/v1.sh` give a standard error of about 750, against about 1,300 for the 60 per biome used before. At budget 8,300 (about v47's server capacity) none of 20 parameter and bonus changes beat v47. See [notes/research-2026-11.md](notes/research-2026-11.md#night-of-2026-11-08).
 - **Score follows spawn pockets**: across 180 games, the score correlates +0.83 with the share of ticks where the spawn area is at most 60 tiles.
 - **New best: 119,482** (game 25605, v46, 2026-11-07). Before that, 108,536 (game 25374, v45) and 90,528 (game 25058, v40).

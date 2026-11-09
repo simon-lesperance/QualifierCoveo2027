@@ -231,3 +231,79 @@ variant.
 where the spawn area is 60 tiles or fewer. The top 10% of games have such a pocket 12% of the time, against 5%
 for the middle. The pocket and flood options above rarely change play, because a triggered volcano stays
 active until it scrolls off, so the volcano decision seldom comes up.
+
+## Good seeds and ablation, 2026-11-08
+
+### How much is the seed?
+
+On the 180 `volcanic_plains` seeds played by 19 near-identical variants of v47, the seed explains about half of the
+score variance (sd 8,100 between seed means, 7,600 within a seed). Replays of the 10 best seeds, 20 each with the
+budget jittered between 8,205 and 8,395 to stand in for server timing:
+
+| Seed | Mean | Best |
+|---|---|---|
+| live-9169 | 118,880 | **161,788** |
+| The 9 others | 81,000-103,000 | 100,000-121,000 |
+| All 200 games | 92,348 | 5 games at 140k+, 8 at 120k+ |
+
+With the dice changed and the map kept (`--rng-tag`), live-9169 still averages 97,530, so its map is what makes it
+good.
+
+### Replaying server games
+
+Each downloaded `game.log` prints the game's seed as a replay command (`--randomSeed <uuid>`). `sim_live
+--seed-list file` plays those seeds. This only replays finished games offline; the live bot never sees a seed.
+
+The 237 `volcanic_plains` server games from v45-v47 replay at 68,455 against 66,873 on the server, but the two
+scores correlate only 0.41. The two 119k records replay at 85,436 and 56,827. A record is a decent seed plus a lucky
+run of play.
+
+A generalized Pareto fit to the 27 server games above 80k puts 160k at about 1 game in 57,000 `volcanic_plains`
+games, and 204k at about 1 in 450 million. The fit is rough, but more games won't get there.
+
+### What a good game looks like
+
+| Games | Kills per game | Points per kill | Share of points from ticks with 5+ kills |
+|---|---|---|---|
+| live-9169 (20 replays) | 506 | 235 | 33% |
+| The 9 other good seeds | 450 | 198 | 14% |
+| The 237 server seeds | 396 | 173 | 6% |
+
+On server seeds, ticks with 1-2 kills give 67% of the points. The bot already kills 97% of what spawns, so only
+points per kill can grow. 204,657 needs about 500 per kill, which means many ticks of 10-20 kills
+(`(1 + 0.5 (kills - 1))` multiplier, 20 alive at most). That takes setups over tens of ticks, which a 4-tick horizon
+doesn't see.
+
+### Ablation
+
+One part of v47 removed or changed per run, 180 `volcanic_plains` games at budget 8,300, paired with v47:
+
+| Change | Result |
+|---|---|
+| Depth 1 | -25,676 ±827 |
+| No policy nets (root and tree) | -21,474 ±827 |
+| No value net | -11,340 ±883 |
+| No wave planning (`--plan-waves 0`) | -7,668 ±760 |
+| No sequential halving | -6,137 ±810 |
+| No tree policy net | -5,396 ±764 |
+| Depth 3 | -2,759 ±878 |
+| No common random numbers | -1,516 ±835 |
+| No volcano actions offered | -1,280 ±780 |
+| No volcano ranking | -412 ±592 |
+| Half budget (4,150) | -4,844 ±764 |
+| **Double budget (16,600)** | **+1,947 ±786** |
+| **Four times the budget (33,200)** | **+2,506 ±810** |
+| True future rows | -4,914 ±809 |
+| True dice | -4,266 ±744 |
+| True wave timing | -812 ±790 |
+| All three true | +429 ±814 (best 148,376) |
+
+- Every part helps, and the nets help most.
+- Search has nearly levelled off: each doubling gains less (+4,844, +1,947, +559). A machine four times faster would
+  add about 2,500, not the 90,000 that 160k needs.
+- Revealing the hidden information loses on its own. The nets were trained on the hidden view, and halving's common
+  random numbers assume sampled dice, so these runs don't measure what perfect prediction is worth. They do say it
+  isn't a free win.
+
+**Conclusion:** more training data or a faster search won't reach 160k-204k. The gap is in the plan: building
+large multi-kills over many ticks.

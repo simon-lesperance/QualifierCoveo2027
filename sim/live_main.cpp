@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <fstream>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -37,6 +38,7 @@ int oracle_budget = 0;
 std::string oracle_dump;  // If set, gets one file of the oracle's search records per game.
 int oracle_every = 10;
 int oracle_arms = 48;
+std::vector<std::string> seed_list;  // --seed-list: play these seeds (for example server ones) in place of live-N.
 std::string rng_tag;  // Keeps a seed's map but changes its dice, to separate the two.
 int frame_every = 0;
 int frame_first = 0;
@@ -219,6 +221,13 @@ int main(int argc, char** argv) {
         else if (name == "--oracle-arms") oracle_arms = value;
         else if (name == "--log") log_folder = argv[i + 1];
         else if (name == "--rng-tag") rng_tag = argv[i + 1];
+        else if (name == "--seed-list") {
+            std::ifstream list(argv[i + 1]);
+            for (std::string line; std::getline(list, line);) {
+                while (!line.empty() && (line.back() == 13 || line.back() == ' ')) line.pop_back();
+                if (!line.empty()) seed_list.push_back(line);
+            }
+        }
         else if (name == "--dice") config.dice = value;
         else if (name == "--rave-k") config.rave_k = std::atof(argv[i + 1]);
         else if (name == "--rave-order") config.rave_order = value != 0;
@@ -265,7 +274,10 @@ int main(int argc, char** argv) {
         if (!tree_policy_path.empty()) own_config.tree_policy = &own_tree_policy;
         for (int job = next.fetch_add(1); job < games * 3; job = next.fetch_add(1)) {
             if (!biome_filter.empty() && biome_filter != kBiomes[job % 3]) continue;
-            results[job] = play(kBiomes[job % 3], "live-" + std::to_string(first + job / 3), own_config, log_folder);
+            const int index = first + job / 3;
+            if (!seed_list.empty() && index >= static_cast<int>(seed_list.size())) continue;
+            const std::string seed = seed_list.empty() ? "live-" + std::to_string(index) : seed_list[index];
+            results[job] = play(kBiomes[job % 3], seed, own_config, log_folder);
         }
     };
     std::vector<std::thread> pool;
