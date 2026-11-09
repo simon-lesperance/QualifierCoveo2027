@@ -71,6 +71,10 @@ struct AgentConfig {
     int pocket_limit = 60;       // Aim at the spawn area when it has at most this many tiles.
     int pocket_targets = 4;      // How many of the best-covering tiles to add to the action list.
     double pocket_weight = 0;    // Share of the next wave's best-case blast added to each leaf's value.
+    // Above 0, rollouts fire at the footprint covering the most points whenever it covers at
+    // least this many dinosaurs, so a herd built in the tree pays off within the horizon.
+    int rollout_fire = 0;
+    double group_weight = 0;     // Share of the best single footprint's points (multiplier included) added to each leaf.
 
     // With no volcano active, tries every mountain with lava alone, and triggers the one
     // that leaves the smallest spawn area if that is worth at least volcano_threshold.

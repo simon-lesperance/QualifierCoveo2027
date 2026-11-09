@@ -40,6 +40,8 @@ int oracle_every = 10;
 int oracle_arms = 48;
 std::vector<std::string> seed_list;  // --seed-list: play these seeds (for example server ones) in place of live-N.
 std::string rng_tag;  // Keeps a seed's map but changes its dice, to separate the two.
+std::string data_folder;  // --data: writes value net samples from this bot's play.
+int data_every = 4;
 int frame_every = 0;
 int frame_first = 0;
 int frame_last = 0;
@@ -67,9 +69,22 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
     if (!log_folder.empty()) log = std::fopen((log_folder + "/" + biome + "-" + seed + ".csv").c_str(), "w");
     std::FILE* dump = nullptr;
     if (!dump_folder.empty()) dump = std::fopen((dump_folder + "/" + biome + "-" + seed + ".bin").c_str(), "wb");
+    // --data: value net samples in sim_datagen's format, from this bot's own play.
+    std::vector<int32_t> data_score(sim::kMaxTicks + 1, 0), data_kills(sim::kMaxTicks + 1, 0), data_ticks;
+    std::vector<uint8_t> data_features;
     for (int tick = 1; tick <= sim::kMaxTicks; tick++) {
         sim::Observation observation = game.observe(tick);
+        if (!data_folder.empty() && tick % data_every == 0 && tick + config.horizon <= sim::kMaxTicks) {
+            // Like an MCTS leaf: in-flight meteors landed, no new launches.
+            sim::Game leaf = sim::Game::from_observation(observation, static_cast<uint32_t>(tick));
+            for (int future = tick; future < tick + config.horizon; future++) leaf.step(future, sim::Action{});
+            data_ticks.push_back(tick + config.horizon);
+            data_features.resize(data_features.size() + sim::kFeatureBytes);
+            sim::encode_features(leaf, tick + config.horizon, data_features.data() + data_features.size() - sim::kFeatureBytes);
+        }
         game.step(tick, agent.act(observation, experiment ? &game : nullptr));
+        data_score[tick] = game.score();
+        data_kills[tick] = game.kills_this_tick();
         const sim::Agent::SearchRecord& record = agent.last_record();
         if ((oracle_log != nullptr || oracle_records != nullptr) && record.tick == tick && tick % oracle_every == 0) {
             if (!oracle_warm) oracle.act(observation, nullptr);  // Sizes its halving rounds.
@@ -140,8 +155,41 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
         if (log != nullptr) {
             int lava = 0;
             for (int cell = 0; cell < sim::kCells; cell++) lava += (game.flags(cell) & sim::kLava) != 0;
-            std::fprintf(log, "%d,%d,%d,%d,%d,%d,%d\n", tick, game.score(), game.total_kills(), game.dino_count(), lava,
-                         game.spawn_tiles(), agent.last_iterations());
+            // Spawn geometry for the next tick: the most spawn tiles one footprint could cover,
+            // and how many the meteor landing next tick covers (-1 if none lands).
+            uint8_t mask[sim::kCells];
+            int spawn = game.spawn_mask(mask);
+            auto covered = [&](int row, int column) {
+                int count = 0;
+                for (int dy = -sim::kMeteorRadius; dy <= sim::kMeteorRadius; dy++) {
+                    for (int dx = -sim::kMeteorRadius; dx <= sim::kMeteorRadius; dx++) {
+                        int r = row + dy, c = column + dx;
+                        if (dx * dx + dy * dy > sim::kMeteorRadius * sim::kMeteorRadius) continue;
+                        if (r >= 0 && r < sim::kHeight && c >= 0 && c < sim::kWidth && mask[r * sim::kWidth + c]) count++;
+                    }
+                }
+                return count;
+            };
+            int best_cover = 0;
+            for (int cell = 0; cell < sim::kCells; cell++) best_cover = std::max(best_cover, covered(cell / sim::kWidth, cell % sim::kWidth));
+            int hit = -1;
+            for (int slot = 0; slot < game.meteor_count(); slot++) {
+                const sim::Meteor& meteor = game.meteor(slot);
+                if (meteor.turns == 1) hit = std::max(hit, covered(meteor.y - game.origin_y(), meteor.x));
+            }
+            std::fprintf(log, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n", tick, game.score(), game.total_kills(), game.dino_count(), lava,
+                         spawn, agent.last_iterations(), best_cover, hit);
+        }
+    }
+    if (!data_folder.empty()) {
+        std::ofstream file(data_folder + "/" + biome + "-" + seed + ".bin", std::ios::binary);
+        file.write(reinterpret_cast<const char*>(data_score.data()), data_score.size() * sizeof(int32_t));
+        file.write(reinterpret_cast<const char*>(data_kills.data()), data_kills.size() * sizeof(int32_t));
+        int32_t count = static_cast<int32_t>(data_ticks.size());
+        file.write(reinterpret_cast<const char*>(&count), sizeof(count));
+        for (int i = 0; i < count; i++) {
+            file.write(reinterpret_cast<const char*>(&data_ticks[i]), sizeof(int32_t));
+            file.write(reinterpret_cast<const char*>(data_features.data() + i * sim::kFeatureBytes), sim::kFeatureBytes);
         }
     }
     if (log != nullptr) std::fclose(log);
@@ -190,6 +238,10 @@ int main(int argc, char** argv) {
         else if (name == "--volcano-lookahead") config.volcano_lookahead = value;
         else if (name == "--volcano-threshold") config.volcano_threshold = std::atof(argv[i + 1]);
         else if (name == "--pocket-weight") config.pocket_weight = std::atof(argv[i + 1]);
+        else if (name == "--rollout-fire") config.rollout_fire = value;
+        else if (name == "--data") data_folder = argv[i + 1];
+        else if (name == "--data-every") data_every = value;
+        else if (name == "--group-weight") config.group_weight = std::atof(argv[i + 1]);
         else if (name == "--pocket-targets") config.pocket_targets = value;
         else if (name == "--policy-cost") config.policy_cost = value;
         else if (name == "--policy-targets") config.policy_targets = value;
