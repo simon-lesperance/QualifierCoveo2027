@@ -82,6 +82,11 @@ SIM_EXPORT void sim_agent_set_waves(void* agent, int pocket_limit, int pocket_ta
     static_cast<sim::Agent*>(agent)->set_waves(pocket_limit, pocket_targets, pocket_weight);
 }
 
+// Share of the best single footprint's points added to each leaf; 0 turns it off.
+SIM_EXPORT void sim_agent_set_group_weight(void* agent, double weight) {
+    static_cast<sim::Agent*>(agent)->set_group_weight(weight);
+}
+
 SIM_EXPORT void sim_agent_set_volcano_rank(void* agent, int on) {
     static_cast<sim::Agent*>(agent)->set_volcano_rank(on != 0);
 }

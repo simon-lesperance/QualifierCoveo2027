@@ -307,3 +307,63 @@ One part of v47 removed or changed per run, 180 `volcanic_plains` games at budge
 
 **Conclusion:** more training data or a faster search won't reach 160k-204k. The gap is in the plan: building
 large multi-kills over many ticks.
+
+## Herding and value nets, night of 2026-11-08
+
+All tests are paired with v47 at budget 8,300 on `volcanic_plains`: 180 games on seeds 9000+, or 360 fresh games on
+seeds 20000+. The fresh games' v47 reference is `runs/tests/d_v47a`, the 2,000 data-generation games, which play
+exactly as v47. New `sim_live` options, all off by default: `--rollout-fire`, `--group-weight`, `--data`, `--wait`
+and `--net2`. The log now also has each tick's spawn tiles, the best possible cover of them, and what the landing
+meteor covered.
+
+### Where big kills come from
+
+Ticks with 5+ kills are mostly spawn ticks, when dinosaurs are age 0 and can't flee. The good seed live-9169 has 6.7
+such ticks per game (24% of its points); server seeds have 0.7 (3.8%). Kills of live dinosaurs in groups are rare
+because they see every footprint and have 4 moves to leave a 13-tile disc.
+
+- When the spawn area is small, a meteor lands on 66-77% of spawn ticks and covers 75-85% of the best possible
+  cover. In areas of 13 tiles or fewer the best disc covers only about 6, because pockets are strips.
+- Pockets (spawn area under 40) are 2.6% of ticks, in about 3.7 episodes per game of 4 ticks (median). 5.5% of waves
+  spawn in one, so the bot already times waves into them.
+- Volcano choices barely change pocket time: 2.38% with no volcano actions, 2.62% in v47.
+
+So aim and timing at spawn are near their limit, and pockets come from the terrain.
+
+### Herding ideas
+
+| Change | Games | Result |
+|---|---|---|
+| Rollouts fire at the best footprint when it covers 2+ dinosaurs, horizon 6 / 8 / 10 | 180 | +151 ±803 / +168 ±953 / -978 ±825 |
+| The same, horizon 8, 1+ / 3+ dinosaurs | 180 | -193 ±820 / +189 ±844 |
+| Leaf adds 0.05 / 0.15 / 0.40 of the best footprint's points (group potential) | 180 | +394 ±775 / +1,298 ±881 / -270 ±789 |
+| Group potential 0.15, horizon 8, rollouts fire at 2+ | 180 | +735 ±760 |
+| Group potential 0.10 / 0.15 / 0.25 | 360 fresh | +160 ±616 / +692 ±598 / +126 ±565 |
+
+None changes the share of points from ticks with 5+ kills (about 5-6%). Group potential is at best a few hundred
+points, within noise, so it wasn't shipped. Its rate of 100k+ games matched v47's on the same seeds (12 against 9).
+Strike plans (fence plus kill) weren't built, because the spawn analysis shows little to gain from live groups.
+
+### Value nets
+
+2,000 v47 games gave 448,000 leaf-shaped positions (`runs/data/v47a`, 2.7 GB). Their 100-tick targets average 6.8k
+with sd 3.2k, against 3.9k and 1.2k for gen2's data. Every new net lost to gen2, at the same 16,293-parameter size:
+
+| Net | Data | R2 | Weight | Result (360 fresh) |
+|---|---|---|---|---|
+| gen5 | v47 games | 0.19 | 0.23 / 0.40 | -2,308 ±605 / -4,548 ±685 |
+| gen5m | v47 + gen2 data | 0.35 (mixed biomes) | 0.31 | -1,519 ±658 |
+| gen5w | v47, 200-tick window | 0.09 | 0.115 | -4,854 ±650 |
+| gen5g | v47, +100 per kill in 4+ kill ticks | 0.18 | not tested | |
+| gen2b | gen2 data only, retrained | 0.26 | 0.40 | -1,937 ±608 |
+| **gen2c** | **gen1 + gen2 data, as gen2, new initialization** | 0.24 | 0.40 | **-2,058 ±620** |
+| gen2 + gen2c averaged | | | 0.40, net charged twice | -1,583 ±631 |
+
+gen2c is the key result: the same data, script and size as gen2 lose about 2,000. So either gen2 is a lucky draw, or
+v47's settings have been tuned around gen2 over 40 versions. That would also explain why gen3 and gen4 lost. Value
+net retraining is not a way forward unless the search is retuned with the new net.
+
+### Conclusion
+
+Neither herding terms nor retrained value nets beat v47. Big kills need age-0 dinosaurs in small spawn areas, which the
+bot already exploits close to the limit of what it can see. v47 stays the server build.

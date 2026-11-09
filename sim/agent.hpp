@@ -39,6 +39,7 @@ struct AgentConfig {
     // Scores what each MCTS iteration leaves behind, on top of the points it earned.
     const ValueNet* net = nullptr;
     double value_weight = 1;
+    const ValueNet* net2 = nullptr;  // If set, leaves use the mean of both nets, at twice the cost.
     int net_cost = 3;            // Simulated ticks charged per evaluation, so tests stay fair on time.
 
     // Ranks the root's actions, and steers visits there, as in AlphaZero. It can also
@@ -71,6 +72,10 @@ struct AgentConfig {
     int pocket_limit = 60;       // Aim at the spawn area when it has at most this many tiles.
     int pocket_targets = 4;      // How many of the best-covering tiles to add to the action list.
     double pocket_weight = 0;    // Share of the next wave's best-case blast added to each leaf's value.
+    // Above 0, rollouts fire at the footprint covering the most points whenever it covers at
+    // least this many dinosaurs, so a herd built in the tree pays off within the horizon.
+    int rollout_fire = 0;
+    double group_weight = 0;     // Share of the best single footprint's points (multiplier included) added to each leaf.
 
     // With no volcano active, tries every mountain with lava alone, and triggers the one
     // that leaves the smallest spawn area if that is worth at least volcano_threshold.
@@ -152,6 +157,7 @@ public:
         config_.pocket_targets = pocket_targets;
         config_.pocket_weight = pocket_weight;
     }
+    void set_group_weight(double weight) { config_.group_weight = weight; }
     int last_simulated() const { return last_simulated_; }
 
     // Pauses of at least kGapMs between clock readings in the last timed search, as

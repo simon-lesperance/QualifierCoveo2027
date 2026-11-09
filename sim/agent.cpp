@@ -286,6 +286,57 @@ void copy_subtree(const std::vector<TreeNode>& from, int start, std::vector<Tree
 
 bool same_action(const Action& a, const Action& b) { return a.type == b.type && a.x == b.x && a.y == b.y; }
 
+// Points for killing a dinosaur of this age, as the engine scores it.
+int kill_base(int age) {
+    static const auto table = [] {
+        std::vector<int> values(kMaxTicks + 8);
+        for (size_t i = 0; i < values.size(); i++) {
+            values[i] = static_cast<int>(std::ceil(std::max(0.0, 500 / std::sqrt(i / 4.0 + 5) - 60)));
+        }
+        return values;
+    }();
+    return table[std::clamp(age, 0, static_cast<int>(table.size()) - 1)];
+}
+
+// For rollouts: the meteor whose footprint covers the most points if nobody moved, counting
+// the multi-kill multiplier. Holds fire (None) unless it covers at least min_kills dinosaurs.
+Action strike_action(const Game& game, int turn, int min_kills, double* best_value = nullptr, bool need_slot = true) {
+    if (best_value != nullptr) *best_value = 0;
+    if ((need_slot && game.meteor_count() >= kMaxMeteors) || game.dino_count() == 0) return Action{};
+    int count[kCells] = {};
+    int value[kCells] = {};
+    for (int slot = 0; slot < game.dino_count(); slot++) {
+        const Dino& dino = game.dino(slot);
+        if (!dino.alive) continue;
+        int row = dino.cell / kWidth, column = dino.cell % kWidth;
+        int points = kill_base(turn + kMeteorDelay - dino.spawn_turn);
+        for (int dy = -kMeteorRadius; dy <= kMeteorRadius; dy++) {
+            int r = row + dy;
+            if (r < 0 || r >= kHeight) continue;
+            for (int dx = -kMeteorRadius; dx <= kMeteorRadius; dx++) {
+                int c = column + dx;
+                if (c < 0 || c >= kWidth || dx * dx + dy * dy > kMeteorRadius * kMeteorRadius) continue;
+                count[r * kWidth + c]++;
+                value[r * kWidth + c] += points;
+            }
+        }
+    }
+    int best = -1;
+    double best_score = 0;
+    for (int cell = 0; cell < kCells; cell++) {
+        if (count[cell] < min_kills) continue;
+        double score = value[cell] * (1 + 0.5 * (count[cell] - 1)) + count[cell];
+        if (score > best_score) { best_score = score; best = cell; }
+    }
+    Action action;
+    if (best_value != nullptr) *best_value = best_score;
+    if (best < 0) return action;
+    action.type = Action::Type::LaunchMeteor;
+    action.x = best % kWidth;
+    action.y = best / kWidth + game.origin_y();
+    return action;
+}
+
 }  // namespace
 
 struct KeptTree {
@@ -647,7 +698,11 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
             budget++;
             int last = std::min(kMaxTicks, turn - 1 + config_.horizon);
             for (int future = turn; future <= last; future++) {
-                game.step(future, Action{});
+                Action rollout_action;
+                if (config_.rollout_fire > 0 && future + kMeteorDelay <= last) {
+                    rollout_action = strike_action(game, future, config_.rollout_fire);
+                }
+                game.step(future, rollout_action);
                 budget--;
             }
             last_simulated_ = config_.sim_budget - budget;
@@ -659,10 +714,20 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
                 uint8_t features[kFeatureBytes];
                 encode_features(game, next_tick, features);
                 double remaining = std::min(1.0, (kMaxTicks + 1 - next_tick) / kWindow);
-                reward += config_.value_weight * 1000 * remaining * config_.net->evaluate(features);
+                double value = config_.net->evaluate(features);
+                if (config_.net2 != nullptr) {
+                    value = 0.5 * (value + config_.net2->evaluate(features));
+                    budget -= config_.net_cost;
+                }
+                reward += config_.value_weight * 1000 * remaining * value;
                 budget -= config_.net_cost;
             }
             if (config_.pocket_weight > 0) reward += config_.pocket_weight * pocket_value(game, config_.pocket_limit);
+            if (config_.group_weight > 0) {
+                double potential = 0;
+                strike_action(game, last + 1, 1, &potential, false);
+                reward += config_.group_weight * potential;
+            }
             if (!flood_bonus_.empty()) {
                 for (int i = 0; i < path_length; i++) {
                     const Action& taken = tree[path_node[i]].edges[path_edge[i]].action;
