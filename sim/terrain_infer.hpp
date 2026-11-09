@@ -75,7 +75,7 @@ private:
         std::array<uint8_t, kWidth> heights{};
     };
     const Cached* find_cached(int y) const;
-    std::array<Cached, 4> cache_{};
+    std::array<Cached, 8> cache_{};
     size_t cache_next_ = 0;
     uint64_t version_ = 0;
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <limits>
 #include <unordered_set>
@@ -961,9 +962,13 @@ void Agent::update_forecast(const Observation& observation, Game& root) {
     }
     seen_row_ = std::max(seen_row_, top);
     inference_->work(config_.infer_ms);
+    if (std::getenv("SIM_INFER_DEBUG") && inference_->failed() && !infer_reported_) {
+        infer_reported_ = true;
+        std::fprintf(stderr, "terrain inference failed by tick %d (rows to %d)\n", observation.tick, inference_->last_row());
+    }
     forecast_.first_y = top + 1;
     forecast_.count = 0;
-    for (int i = 0; i < RowForecast::kMax - 1; i++) {
+    for (int i = 0; i < RowForecast::kMax; i++) {
         if (!inference_->predict(top + 1 + i, forecast_.elevation[i], forecast_.flags[i])) break;
         forecast_.count++;
     }

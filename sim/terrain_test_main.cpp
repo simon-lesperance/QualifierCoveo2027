@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
     for (int i = 2; i + 1 < argc; i += 2) {
         if (std::string(argv[i]) == "--first") first = std::atoi(argv[i + 1]);
     }
-    constexpr int kAhead = 3;
+    constexpr int kAhead = 8;
     long tiles[kAhead] = {}, right[kAhead] = {}, copy_right[kAhead] = {}, rows_exact[kAhead] = {}, rows_total[kAhead] = {};
     long flag_right[kAhead] = {}, copy_flag_right[kAhead] = {};
     int failures = 0;

@@ -75,7 +75,7 @@ struct Observation {
 // All mutable game state. Trivially copyable, so search can branch with a plain copy.
 // Rows the live bot predicts will enter the frame, used in place of copying the last row.
 struct RowForecast {
-    static constexpr int kMax = 4;
+    static constexpr int kMax = 8;
     int first_y = 0;
     int count = 0;
     uint8_t elevation[kMax][kWidth];

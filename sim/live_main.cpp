@@ -44,6 +44,7 @@ std::string rng_tag;  // Keeps a seed's map but changes its dice, to separate th
 std::string data_folder;  // --data: writes value net samples from this bot's play.
 int data_every = 4;
 int wait_percent = 0;  // --wait: replaces this share of moves with doing nothing, for diverse value net data.
+bool truth_root = false;  // --truth-root: search from the true game with nothing revealed, a control for the reveal tests.
 int frame_every = 0;
 int frame_first = 0;
 int frame_last = 0;
@@ -65,7 +66,7 @@ Result play(const char* biome, const std::string& seed, const sim::AgentConfig& 
     if (oracle_budget > 0 && !log_folder.empty()) {
         oracle_log = std::fopen((log_folder + "/" + biome + "-" + seed + "-oracle.csv").c_str(), "w");
     }
-    bool experiment = config.reveal_rows || config.reveal_rng || config.reveal_waves;
+    bool experiment = config.reveal_rows || config.reveal_rng || config.reveal_waves || truth_root;
     int last_id = 0;
     std::FILE* log = nullptr;
     if (!log_folder.empty()) log = std::fopen((log_folder + "/" + biome + "-" + seed + ".csv").c_str(), "w");
@@ -253,6 +254,7 @@ int main(int argc, char** argv) {
         else if (name == "--wait") wait_percent = value;
         else if (name == "--group-weight") config.group_weight = std::atof(argv[i + 1]);
         else if (name == "--terrain-infer") config.terrain_infer = value != 0;
+        else if (name == "--truth-root") truth_root = value != 0;
         else if (name == "--infer-ms") config.infer_ms = std::atof(argv[i + 1]);
         else if (name == "--pocket-targets") config.pocket_targets = value;
         else if (name == "--policy-cost") config.policy_cost = value;

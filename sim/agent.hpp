@@ -229,6 +229,7 @@ private:
     std::shared_ptr<TerrainInference> inference_;
     RowForecast forecast_;
     int seen_row_ = -1;  // Highest world row fed to inference_.
+    bool infer_reported_ = false;
     void update_forecast(const Observation& observation, Game& root);
 };
 
