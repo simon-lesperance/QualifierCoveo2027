@@ -963,15 +963,24 @@ void Agent::update_forecast(const Observation& observation, Game& root) {
         inference_->observe(y, observation.elevation + (y - observation.origin_y) * kWidth);
     }
     seen_row_ = std::max(seen_row_, top);
+    double observed = now_ms();
     inference_->work(config_.infer_ms);
+    double worked = now_ms();
     if (std::getenv("SIM_INFER_DEBUG") && inference_->failed() && !infer_reported_) {
         infer_reported_ = true;
         std::fprintf(stderr, "terrain inference failed by tick %d (rows to %d)\n", observation.tick, inference_->last_row());
     }
-    forecast_.first_y = top + 1;
-    forecast_.count = 0;
-    forecast_.samples = 0;
-    if (config_.terrain_samples) {
+    // The draws depend only on the hypotheses, the rows seen and the first row drawn, so they
+    // are redrawn only when one of those changed.
+    std::array<uint64_t, 3> sample_key = {inference_->version(), static_cast<uint64_t>(inference_->last_row()),
+                                          static_cast<uint64_t>(top)};
+    if (config_.terrain_samples && sample_key == sample_key_ && forecast_.first_y == top + 1) {
+        // Same draws as last tick.
+    } else if (config_.terrain_samples) {
+        sample_key_ = sample_key;
+        forecast_.first_y = top + 1;
+        forecast_.count = 0;
+        forecast_.samples = 0;
         // Draws need no majority vote, and the search sees at most two frame shifts ahead.
         constexpr int kSampleRows = 3;
         for (int count = std::min(kSampleRows, RowForecast::kMax); count > 0 && forecast_.samples == 0; count--) {
@@ -986,6 +995,9 @@ void Agent::update_forecast(const Observation& observation, Game& root) {
             }
         }
     } else {
+        forecast_.first_y = top + 1;
+        forecast_.count = 0;
+        forecast_.samples = 0;
         for (int i = 0; i < RowForecast::kMax; i++) {
             if (!inference_->predict(top + 1 + i, forecast_.elevation[i], forecast_.flags[i])) break;
             forecast_.count++;
@@ -996,6 +1008,9 @@ void Agent::update_forecast(const Observation& observation, Game& root) {
         infer_calls_++;
         infer_total_ms_ += spent;
         infer_max_ms_ = std::max(infer_max_ms_, spent);
+        if (spent > 30)
+            std::fprintf(stderr, "slow infer tick %d observe %.1f work %.1f sample %.1f hypotheses %d\n", observation.tick,
+                         observed - began, worked - observed, now_ms() - worked, inference_->hypothesis_count());
         if (observation.tick % 250 == 0)
             std::fprintf(stderr, "infer tick %d calls %d mean %.3f ms max %.3f ms\n", observation.tick, infer_calls_,
                          infer_total_ms_ / infer_calls_, infer_max_ms_);

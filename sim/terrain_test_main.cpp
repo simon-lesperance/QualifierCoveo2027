@@ -16,8 +16,10 @@
 int main(int argc, char** argv) {
     int seeds = argc > 1 ? std::atoi(argv[1]) : 20;
     int first = 0;
+    double budget = 0;  // --budget: work() milliseconds per row, as a live bot would cap it.
     for (int i = 2; i + 1 < argc; i += 2) {
         if (std::string(argv[i]) == "--first") first = std::atoi(argv[i + 1]);
+        if (std::string(argv[i]) == "--budget") budget = std::atof(argv[i + 1]);
     }
     constexpr int kAhead = 8;
     long tiles[kAhead] = {}, right[kAhead] = {}, copy_right[kAhead] = {}, rows_exact[kAhead] = {}, rows_total[kAhead] = {};
@@ -37,7 +39,7 @@ int main(int argc, char** argv) {
         for (int y = 0; y <= 218; y++) {
             auto start = std::chrono::steady_clock::now();
             inference.observe(y, height[y].data());
-            inference.work(0);
+            inference.work(budget);
             double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
             if (y < 20) initial_ms += ms; else slowest = std::max(slowest, ms);
             if (y >= 20 && ms > 30) std::printf("slow observe %.1f ms at y %d, hypotheses %d\n", ms, y, inference.hypothesis_count());

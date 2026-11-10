@@ -235,6 +235,7 @@ private:
     bool infer_reported_ = false;
     int infer_calls_ = 0;
     double infer_total_ms_ = 0, infer_max_ms_ = 0;
+    std::array<uint64_t, 3> sample_key_{};  // What the current terrain draws were made from.
     void update_forecast(const Observation& observation, Game& root);
 };
 

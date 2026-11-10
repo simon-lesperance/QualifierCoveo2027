@@ -56,22 +56,43 @@ bool TerrainInference::layer_tile_ok(int layer, int x, int y) {
     return false;
 }
 
-void TerrainInference::layer_search(Grid& grid, int layer, int first, int last, const std::vector<int>& check_rows,
-                                    int column, Assignment& current, std::vector<Assignment>& out, size_t cap) {
-    if (out.size() > cap) return;
-    if (column == kUsedCols) {
-        out.push_back(current);
-        return;
-    }
+namespace {
+
+double steady_ms() {
+    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+}  // namespace
+
+bool TerrainInference::out_of_time() { return deadline_ > 0 && steady_ms() >= deadline_; }
+
+bool TerrainInference::layer_step(int layer, int first, int last, const std::vector<int>& check_rows) {
+    Extension& e = ext_;
     int count = last - first + 1;
     int options = count == 1 ? 8 : 64;
-    uint8_t* cells = grid.data() + layer * kLayerSize + column * kRows;
-    use(grid);
-    for (int option = 0; option < options; option++) {
+    std::vector<Assignment>& out = e.solutions[layer];
+    use(e.grid);
+    while (e.column >= 0) {
+        if (e.column == kUsedCols) {
+            out.push_back(e.current);
+            if (out.size() > kLayerCap) return true;
+            e.column--;
+            continue;
+        }
+        int column = e.column;
+        uint8_t* cells = e.grid.data() + layer * kLayerSize + column * kRows;
+        if (e.option[column] >= options) {
+            for (int i = 0; i < count; i++) cells[first + i] = 8;
+            e.option[column] = 0;
+            e.column--;
+            continue;
+        }
+        if ((++nodes_ & 15) == 0 && out_of_time()) return false;
+        int option = e.option[column]++;
         for (int i = 0; i < count; i++) {
             uint8_t value = static_cast<uint8_t>((option >> (3 * i)) & 7);
             cells[first + i] = value;
-            current[column * 2 + i] = value;
+            e.current[column * 2 + i] = value;
         }
         bool ok = true;
         if (column >= 1) {  // Tiles whose lattice columns are now all assigned.
@@ -80,42 +101,65 @@ void TerrainInference::layer_search(Grid& grid, int layer, int first, int last, 
                 if (!ok) break;
             }
         }
-        if (ok) layer_search(grid, layer, first, last, check_rows, column + 1, current, out, cap);
-        if (out.size() > cap) break;
+        if (ok) e.column++;
     }
-    for (int i = 0; i < count; i++) cells[first + i] = 8;
+    return true;
 }
 
-bool TerrainInference::extend_one(Grid& base, int first, int last, const std::vector<int>& check_rows,
-                                  std::vector<Grid>& next) {
-    std::vector<Assignment> solutions[kLayers];
-    for (int layer = 0; layer < kLayers; layer++) {
-        Assignment current{};
-        layer_search(base, layer, first, last, check_rows, 0, current, solutions[layer], kLayerCap);
-        if (solutions[layer].size() > kLayerCap) return false;
+TerrainInference::Step TerrainInference::extend_step(const Grid& base, int first, int last,
+                                                     const std::vector<int>& check_rows, std::vector<Grid>& next) {
+    Extension& e = ext_;
+    if (!e.active) {
+        e.active = true;
+        e.stage = 0;
+        e.grid = base;
+        e.column = 0;
+        e.option.fill(0);
+        for (int layer = 0; layer < kLayers; layer++) {
+            e.solutions[layer].clear();
+            e.values[layer].clear();
+        }
+        e.join_a = 0;
     }
-    if (solutions[0].size() * solutions[1].size() > kPairCap) return false;
-
-    // Each solution's layer values on the rows checked, then the exact join.
+    auto fail = [&] {
+        e.active = false;
+        return Step::Failed;
+    };
+    while (e.stage < kLayers) {
+        if (!layer_step(e.stage, first, last, check_rows)) return Step::Paused;
+        if (e.solutions[e.stage].size() > kLayerCap) return fail();
+        e.stage++;
+        e.grid = base;
+        e.column = 0;
+        e.option.fill(0);
+    }
     auto apply = [&](Grid& grid, int layer, const Assignment& a) {
         for (int c = 0; c < kUsedCols; c++)
             for (int k = first; k <= last; k++) grid[layer * kLayerSize + c * kRows + k] = a[c * 2 + (k - first)];
     };
     size_t tiles = check_rows.size() * kWidth;
-    std::vector<double> values[kLayers];
-    for (int layer = 0; layer < kLayers; layer++) {
-        values[layer].resize(solutions[layer].size() * tiles);
-        Grid grid = base;
-        for (size_t s = 0; s < solutions[layer].size(); s++) {
-            apply(grid, layer, solutions[layer][s]);
-            use(grid);
-            size_t index = s * tiles;
-            for (int y : check_rows)
-                for (int x = 0; x < kWidth; x++) values[layer][index++] = model_.layer_value(layer, x, y);
+    if (e.stage == kLayers) {
+        // Each solution's layer values on the rows checked, for the exact join.
+        if (e.solutions[0].size() * e.solutions[1].size() > kPairCap) return fail();
+        for (int layer = 0; layer < kLayers; layer++) {
+            e.values[layer].resize(e.solutions[layer].size() * tiles);
+            Grid grid = base;
+            for (size_t s = 0; s < e.solutions[layer].size(); s++) {
+                apply(grid, layer, e.solutions[layer][s]);
+                use(grid);
+                size_t index = s * tiles;
+                for (int y : check_rows)
+                    for (int x = 0; x < kWidth; x++) e.values[layer][index++] = model_.layer_value(layer, x, y);
+            }
         }
+        e.stage++;
+        e.join_a = 0;
     }
-    for (size_t a = 0; a < solutions[0].size(); a++) {
-        for (size_t b = 0; b < solutions[1].size(); b++) {
+    const std::vector<double>* values = e.values;
+    for (; e.join_a < e.solutions[0].size(); e.join_a++) {
+        if (out_of_time()) return Step::Paused;
+        size_t a = e.join_a;
+        for (size_t b = 0; b < e.solutions[1].size(); b++) {
             bool ok = true;
             size_t tile = 0;
             for (int y : check_rows) {
@@ -128,13 +172,14 @@ bool TerrainInference::extend_one(Grid& base, int first, int last, const std::ve
             }
             if (!ok) continue;
             Grid grid = base;
-            apply(grid, 0, solutions[0][a]);
-            apply(grid, 1, solutions[1][b]);
+            apply(grid, 0, e.solutions[0][a]);
+            apply(grid, 1, e.solutions[1][b]);
             next.push_back(grid);
-            if (next.size() > kHypothesisCap) return false;
+            if (next.size() > kHypothesisCap) return fail();
         }
     }
-    return true;
+    e.active = false;
+    return Step::Done;
 }
 
 void TerrainInference::observe(int y, const uint8_t* heights) {
@@ -166,11 +211,8 @@ void TerrainInference::observe(int y, const uint8_t* heights) {
 }
 
 void TerrainInference::work(double budget_ms) {
-    auto start = std::chrono::steady_clock::now();
-    auto expired = [&] {
-        return budget_ms > 0 &&
-               std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() >= budget_ms;
-    };
+    deadline_ = budget_ms > 0 ? steady_ms() + budget_ms : 0;
+    auto expired = [&] { return out_of_time(); };
     while (!failed_) {
         if (!pending_) {
             int first = assigned_ + 1;
@@ -194,7 +236,10 @@ void TerrainInference::work(double budget_ms) {
         }
         while (pending_index_ < hypotheses_.size()) {
             if (expired()) return;
-            if (!extend_one(hypotheses_[pending_index_++], pending_first_, pending_last_, pending_rows_, pending_next_)) {
+            Step step = extend_step(hypotheses_[pending_index_], pending_first_, pending_last_, pending_rows_, pending_next_);
+            if (step == Step::Paused) return;
+            pending_index_++;
+            if (step == Step::Failed) {
                 pending_ = false;
                 pending_next_.clear();
                 if (pending_last_ > pending_first_ && pending_first_ > 0) {

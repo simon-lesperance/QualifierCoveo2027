@@ -27,6 +27,8 @@ public:
     bool failed() const { return failed_; }
     int hypothesis_count() const { return static_cast<int>(hypotheses_.size()); }
     int assigned() const { return assigned_; }
+    // Changes whenever the hypotheses do.
+    uint64_t version() const { return version_; }
     // Debug: how many hypotheses match the true terrain's gradients on assigned lattice rows.
     int matching(const Terrain& truth) const;
 
@@ -59,10 +61,13 @@ private:
     const uint8_t* row(int y) const { return rows_[y - first_y_].data(); }
     void use(const Grid& grid);
     bool consistent(const Grid& grid, int y);
-    bool extend_one(Grid& base, int first, int last, const std::vector<int>& check_rows, std::vector<Grid>& next);
+    enum class Step { Done, Failed, Paused };
+    // Extends one hypothesis to the pending lattice rows, resuming where the last call ran out of time.
+    Step extend_step(const Grid& base, int first, int last, const std::vector<int>& check_rows, std::vector<Grid>& next);
     void filter(std::vector<Grid>& grids, int y);
-    void layer_search(Grid& grid, int layer, int first, int last, const std::vector<int>& check_rows, int column,
-                      Assignment& current, std::vector<Assignment>& out, size_t cap);
+    // Depth-first search over one layer's lattice columns. False if it ran out of time first.
+    bool layer_step(int layer, int first, int last, const std::vector<int>& check_rows);
+    bool out_of_time();
     bool layer_tile_ok(int layer, int x, int y);
 
     bool supported_ = false;
@@ -91,6 +96,22 @@ private:
     std::vector<int> pending_rows_;
     std::vector<Grid> pending_next_;
     int deferred_rows_ = -1;  // Rows seen when an extension was last found too ambiguous.
+
+    // The extension of hypotheses_[pending_index_] in progress.
+    struct Extension {
+        bool active = false;
+        int stage = 0;  // Below kLayers: searching that layer. kLayers: values. Above: joining.
+        Grid grid{};
+        int column = 0;
+        std::array<int, kUsedCols> option{};  // Next option to try in each column.
+        Assignment current{};
+        std::vector<Assignment> solutions[kLayers];
+        std::vector<double> values[kLayers];
+        size_t join_a = 0;
+    };
+    Extension ext_;
+    double deadline_ = 0;  // In steady-clock milliseconds; 0 means no limit.
+    int nodes_ = 0;
 };
 
 }  // namespace sim
