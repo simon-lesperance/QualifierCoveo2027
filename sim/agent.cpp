@@ -955,6 +955,7 @@ Action Agent::policy_action(const Game& root, int tick) {
 }
 
 void Agent::update_forecast(const Observation& observation, Game& root) {
+    double began = now_ms();
     if (!inference_) inference_ = std::make_shared<TerrainInference>("volcanic_plains");
     // Each row is fed once, when it first appears: before any meteor can lower it.
     int top = observation.origin_y + kHeight - 1;
@@ -969,23 +970,41 @@ void Agent::update_forecast(const Observation& observation, Game& root) {
     }
     forecast_.first_y = top + 1;
     forecast_.count = 0;
-    for (int i = 0; i < RowForecast::kMax; i++) {
-        if (!inference_->predict(top + 1 + i, forecast_.elevation[i], forecast_.flags[i])) break;
-        forecast_.count++;
-    }
     forecast_.samples = 0;
-    if (config_.terrain_samples && forecast_.count > 0) {
-        bool ok = true;
-        for (int s = 0; s < RowForecast::kSamples && ok; s++) {
-            ok = inference_->sample_rows(top + 1, forecast_.count, static_cast<uint32_t>(s),
-                                         &forecast_.sample_elevation[s][0][0], &forecast_.sample_flags[s][0][0]);
+    if (config_.terrain_samples) {
+        // Draws need no majority vote, and the search sees at most two frame shifts ahead.
+        constexpr int kSampleRows = 3;
+        for (int count = std::min(kSampleRows, RowForecast::kMax); count > 0 && forecast_.samples == 0; count--) {
+            bool ok = true;
+            for (int s = 0; s < RowForecast::kSamples && ok; s++) {
+                ok = inference_->sample_rows(top + 1, count, static_cast<uint32_t>(s),
+                                             &forecast_.sample_elevation[s][0][0], &forecast_.sample_flags[s][0][0]);
+            }
+            if (ok) {
+                forecast_.count = count;
+                forecast_.samples = RowForecast::kSamples;
+            }
         }
-        if (ok) forecast_.samples = RowForecast::kSamples;
+    } else {
+        for (int i = 0; i < RowForecast::kMax; i++) {
+            if (!inference_->predict(top + 1 + i, forecast_.elevation[i], forecast_.flags[i])) break;
+            forecast_.count++;
+        }
+    }
+    if (std::getenv("SIM_INFER_DEBUG")) {
+        double spent = now_ms() - began;
+        infer_calls_++;
+        infer_total_ms_ += spent;
+        infer_max_ms_ = std::max(infer_max_ms_, spent);
+        if (observation.tick % 250 == 0)
+            std::fprintf(stderr, "infer tick %d calls %d mean %.3f ms max %.3f ms\n", observation.tick, infer_calls_,
+                         infer_total_ms_ / infer_calls_, infer_max_ms_);
     }
     root.set_forecast(&forecast_);
 }
 
 Action Agent::act(const Observation& observation, const Game* truth) {
+    double started = now_ms();  // Terrain inference below spends from the same budget.
     last_simulated_ = 0;
     root_visits_.clear();
     gaps_.clear();
@@ -1017,7 +1036,7 @@ Action Agent::act(const Observation& observation, const Game* truth) {
 
     if (config_.policy != nullptr && config_.policy_only) return policy_action(root, observation.tick);
 
-    double deadline = config_.time_budget_ms > 0 ? now_ms() + config_.time_budget_ms : 0;
+    double deadline = config_.time_budget_ms > 0 ? started + config_.time_budget_ms : 0;
     ranked_volcanoes_.clear();
     flood_bonus_.clear();
     int budget = config_.sim_budget;

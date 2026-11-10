@@ -87,6 +87,12 @@ SIM_EXPORT void sim_agent_set_group_weight(void* agent, double weight) {
     static_cast<sim::Agent*>(agent)->set_group_weight(weight);
 }
 
+// Infers upcoming volcanic_plains rows from the rows seen. infer_ms caps that work per tick
+// (0 means no cap); samples=1 gives each search iteration its own draw of those rows.
+SIM_EXPORT void sim_agent_set_terrain_infer(void* agent, int on, double infer_ms, int samples) {
+    static_cast<sim::Agent*>(agent)->set_terrain_infer(on != 0, infer_ms, samples != 0);
+}
+
 SIM_EXPORT void sim_agent_set_volcano_rank(void* agent, int on) {
     static_cast<sim::Agent*>(agent)->set_volcano_rank(on != 0);
 }

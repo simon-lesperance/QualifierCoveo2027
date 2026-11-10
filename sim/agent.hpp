@@ -166,9 +166,10 @@ public:
         config_.pocket_weight = pocket_weight;
     }
     void set_group_weight(double weight) { config_.group_weight = weight; }
-    void set_terrain_infer(bool on, double ms) {
+    void set_terrain_infer(bool on, double ms, bool samples) {
         config_.terrain_infer = on;
         config_.infer_ms = ms;
+        config_.terrain_samples = samples;
     }
     int last_simulated() const { return last_simulated_; }
 
@@ -232,6 +233,8 @@ private:
     RowForecast forecast_;
     int seen_row_ = -1;  // Highest world row fed to inference_.
     bool infer_reported_ = false;
+    int infer_calls_ = 0;
+    double infer_total_ms_ = 0, infer_max_ms_ = 0;
     void update_forecast(const Observation& observation, Game& root);
 };
 

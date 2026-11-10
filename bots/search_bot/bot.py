@@ -49,6 +49,9 @@ ROOT_HALVING = 16  # Root actions tried by sequential halving; 0 keeps UCT at th
 HALVING_CRN = 1  # 1 gives the k-th visit of every halving action the same dice guess.
 TREE_REUSE = 0  # 1 keeps the played action's subtree for the next tick.
 TREE_DEPTH, TREE_VISITS = 1, 0  # Used only if tree_net.bin is in this folder too.
+# Upcoming volcanic_plains rows are inferred from the rows seen, and each search iteration plays its
+# own draw of them. INFER_MS caps the inference work per tick; it counts against the tick's budget.
+TERRAIN_INFER, INFER_MS, TERRAIN_SAMPLES = 1, 8.0, 1
 
 
 class Observation(ctypes.Structure):
@@ -98,6 +101,8 @@ def load_library() -> ctypes.CDLL:
     library.sim_agent_set_halving_options.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_double]
     library.sim_agent_set_tree_reuse.restype = None
     library.sim_agent_set_tree_reuse.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    library.sim_agent_set_terrain_infer.restype = None
+    library.sim_agent_set_terrain_infer.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_double, ctypes.c_int]
     library.sim_agent_set_volcano_rank.restype = None
     library.sim_agent_set_volcano_rank.argtypes = [ctypes.c_void_p, ctypes.c_int]
     library.sim_agent_set_waves.restype = None
@@ -158,6 +163,7 @@ class Bot:
         LIBRARY.sim_agent_set_root_halving(self.agent, ROOT_HALVING, 0.0)
         LIBRARY.sim_agent_set_halving_options(self.agent, HALVING_CRN, 0.0)
         LIBRARY.sim_agent_set_tree_reuse(self.agent, TREE_REUSE)
+        LIBRARY.sim_agent_set_terrain_infer(self.agent, TERRAIN_INFER, INFER_MS, TERRAIN_SAMPLES)
         print(f"HALVING actions={ROOT_HALVING} crn={HALVING_CRN} reuse={TREE_REUSE}", flush=True)
         self.observation = Observation()
         self.spent = []
