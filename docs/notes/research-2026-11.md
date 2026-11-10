@@ -428,3 +428,41 @@ about +1,600 ±510 on top of b20i30 over sets B and C. b20i60 adds about +790 ±
 
 The earlier ablation's "true rows -4,914" was an artefact: hiding the waves in the reveal path turned wave planning
 off. With it kept on, true rows are worth about +2,000.
+
+## v50 and v51, night of 2026-11-09
+
+All tests are 360 paired `volcanic_plains` games at budget 8,300. The value net training data
+(`runs/data/v47a`) came from seeds 20000-21999, which overlap test sets A-D, so tonight's
+confirmations also use sets E (40000+) and F (40360+), outside all training data.
+
+### v50: shipping terrain draws
+
+- b20i60 plus sampled terrain rows: **+4,923 ±677** over v47 on set D (21080+), about the sum of
+  the separate gains (+2,570, +790, +1,600).
+- **Latency.** Inference averaged 1.3 ms per tick, but 10% of games had a tick over 95 ms (worst
+  275 ms), because one extension (`extend_one`) could take 75 ms before the per-tick cap was
+  checked. The per-layer search and the join are now resumable (`extend_step`): they stop at the
+  deadline and continue next tick. Draws are cached by (hypothesis version, last row, first row
+  drawn), and the act() deadline starts before inference, so its time comes out of the tick.
+  Worst tick fell to 18 ms over 22 games with 11 threads. Offline accuracy with 32 ms per row
+  (about 4.5 ticks per row at 8 ms) matches uncapped inference. When sampling, the majority vote
+  is skipped and only 3 rows are drawn.
+- The rebuilt v50: **+4,764 ±707** over v47 on set D.
+- Server: 108 games, mean 70,476, best 117,588, 7 late ticks.
+
+### Tuning on top of v50
+
+| Change | Set D | Set E | Set F |
+|---|---|---|---|
+| b20i100 (100 epochs) | -189 ±705 | | |
+| m20i60: gen2 targets on v47 + v50 games | +581 ±777 | +467 ±693 | |
+| c20i30: b20i60 teacher on 2,000 v50 games | +955 ±746 | +289 ±751 | |
+| 16 terrain draws instead of 8 | | -289 ±657 | |
+| Depth 6 | | +197 ±685 | |
+| Value weight 0.3 / 0.5 / 0.6 | -1,009 / +291 / +270 | | |
+| **Horizon 5** | **+1,021 ±685** | **+932 ±724** | **+1,225 ±682** |
+| Horizon 6 | | +468 ±739 | |
+
+With horizon 5 as the base: c20i30 is -647, -402 and +243 on sets D, E and F, and depth 4 is
+-1,318 ±690 on set E. Exploration 0.45 is -1,722 ±635 and 0.25 is -131 ±679 on set E.
+v51 is v50 with horizon 5.

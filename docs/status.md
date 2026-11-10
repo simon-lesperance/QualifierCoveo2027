@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-11-09, 20:45. This page goes stale fast, so check the date.
+Last updated: 2026-11-10, 09:30. This page goes stale fast, so check the date.
 
 ## Scores
 
@@ -8,7 +8,7 @@ Last updated: 2026-11-09, 20:45. This page goes stale fast, so check the date.
 |---|---|---|
 | Best server game | **119,482** | v46, 2026-11-07. The leaderboard keeps the best single game |
 | Leaderboard, 2026-11-09 | 204,657, 165,224 | Ranks 1 and 2, unchanged since 2026-11-03 |
-| v49 (server build), simulated | about +2,570 over v47 | 1,080 paired games on three fresh seed sets |
+| v51 (server build), simulated | about +5,800 over v47 | v50 +4,764 ±707, then horizon 5 +1,060 ±400 over three seed sets |
 | v47, simulated | 67,812 mean | 2,000 fresh `volcanic_plains` games at budget 8,300, best 135,843 |
 | Foresight search, full seed knowledge | 229,399 | About 600 times the server budget. Not reachable live |
 
@@ -49,6 +49,8 @@ counts volcanic games only.
 | v47 again, 2026-11-09 | 37 | 67,062 ±1,470 | 89,853 | 10 |
 | v47 with the b20i value net (v48) | 39 | 68,266 ±1,844 | 103,204 | 13 |
 | v47 with the b20i30 value net (v49) | 67 | 68,651 | 104,201 | 4 late ticks |
+| b20i60 value net and sampled terrain rows (v50) | 108 | 70,476 | 117,588 | 7 late ticks |
+| v50 with rollout horizon 5 (v51), batch running | | | | |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
@@ -56,8 +58,9 @@ counts volcanic games only.
 
 - **The small tree net helps, if it's used sparingly.** It's a 16-channel copy of the PPO net that orders moves one level down. Used on every depth-1 node (v36), it left about 700 simulated ticks per move on the server, against about 5,000 for v35, and gained nothing. From a node's second visit (v37), it evaluates about 5 nodes per move and keeps about 4,700 ticks. With biomes weighted equally, v37 scored 54,283 ±897 on the server against 52,010 ±1,946 for v35, so +2,273 ±2,143.
 - **Local tests must charge server costs.** At a charge of 75 ticks per small-net evaluation, every depth-1 node looked like +2,553 ±382. At 460 ticks and 1,370 for the root net it's -1,638 ±677, which matches the server, while the second visit is +1,230 ±609 and the third +1,382 ±734, on 120 paired games. `simulated` in the BUDGET log includes a flat 1,500 charge for the root net, so subtract it.
+- **v50 and v51 (night of 2026-11-09).** v50 adds the b20i60 net and sampled terrain rows: +4,764 ±707 over v47 on 360 fresh paired games, and the best server mean so far (70,476 over 108 games). v51 lengthens the rollout horizon from 4 to 5 ticks: +932, +1,021 and +1,225 on three seed sets, about +1,060 ±400. With terrain draws the longer rollouts may be worth more than before. Inference work is capped at 8 ms per tick and resumes the next tick, with a worst tick of 18 ms in tests. Within noise or worse: 100 epochs, nets trained on v50's own games, 16 terrain draws, depth 4 or 6, horizon 6, value weight 0.3/0.5/0.6. See [notes/research-2026-11.md](notes/research-2026-11.md#v50-and-v51-night-of-2026-11-09).
 - **Bootstrapped value nets: v49 is about +2,570 over v47 (2026-11-09).** gen2 fine-tuned on 2,000 v47 games, with targets of real points over 20 ticks plus gen2's estimate after that. Training from scratch fails on any target: the search is fitted to gen2. 60 epochs adds about +790 more. See [notes/research-2026-11.md](notes/research-2026-11.md#bootstrapped-value-nets-and-terrain-inference-2026-11-09).
-- **Terrain inference: sampled rows add about +1,600 on top of v49 (2026-11-09).** Upcoming rows are inferred from the rows seen (no seed), and each search iteration plays its own posterior draw. A single best guess adds nothing. Not on the server yet: it needs timing work for 95 ms per tick and a C API setter.
+- **Terrain inference: sampled rows add about +1,600 on top of v49 (2026-11-09).** Upcoming rows are inferred from the rows seen (no seed), and each search iteration plays its own posterior draw. A single best guess adds nothing. On the server since v50.
 - **Herding terms and retrained value nets don't beat v47 (2026-11-09).** Firing rollouts and a group-potential leaf term are within noise. Every new value net loses 1,500-4,800, including one retrained on gen2's own data, so v47 is tuned around gen2. Big kills come from age-0 dinosaurs in small spawn areas, which the bot already exploits near its limit. See [notes/research-2026-11.md](notes/research-2026-11.md#herding-and-value-nets-night-of-2026-11-08).
 - **The gap to 160k-204k is in the plan, not in search or data.** An ablation shows every part of v47 helps, but four times the budget adds only +2,506. The bot kills 97% of what spawns, at 173 points per kill on server seeds, with 67% of points from ticks with 1-2 kills. 204k needs about 500 per kill: ticks of 10-20 kills. On its best local seed v47 averages 118,880 and peaked at 161,788. Server seeds can be replayed with `sim_live --seed-list`. See [notes/research-2026-11.md](notes/research-2026-11.md#good-seeds-and-ablation-2026-11-08).
 - **Tests should play `volcanic_plains` only**, since that's all the bot plays on the server: 180 games with `runs/tests/v1.sh` give a standard error of about 750, against about 1,300 for the 60 per biome used before. At budget 8,300 (about v47's server capacity) none of 20 parameter and bonus changes beat v47. See [notes/research-2026-11.md](notes/research-2026-11.md#night-of-2026-11-08).
