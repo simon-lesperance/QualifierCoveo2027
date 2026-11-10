@@ -306,6 +306,53 @@ bool TerrainInference::predict(int y, uint8_t* heights, uint8_t* flags) {
     return true;
 }
 
+bool TerrainInference::sample_rows(int first_y, int count, uint32_t seed, uint8_t* heights, uint8_t* flags) {
+    if (failed_ || hypotheses_.empty() || first_y <= last_row()) return false;
+    int deepest = needed_lattice_row(first_y + count - 1);
+    if (deepest + 1 >= kRows) return false;
+    uint32_t state = seed * 2654435761u + static_cast<uint32_t>(version_) * 40503u + 1;
+    auto next = [&] {
+        state = state * 1664525u + 1013904223u;
+        return state >> 8;
+    };
+    Grid grid = hypotheses_[next() % hypotheses_.size()];
+    use(grid);
+    int unknown = assigned_ + 1;
+    std::vector<int> band;
+    for (int seen = std::max(first_y_, 5 * (unknown - 1)); seen <= last_row(); seen++) {
+        if (needed_lattice_row(seen) == unknown) band.push_back(seen);
+    }
+    if (unknown <= deepest) {
+        // Rejection: redraw the unknown row's gradients until the band rows seen agree.
+        for (int attempt = 0; attempt < 200; attempt++) {
+            for (int layer = 0; layer < kLayers; layer++)
+                for (int c = 0; c < kUsedCols; c++) grid[layer * kLayerSize + c * kRows + unknown] = next() % 8;
+            bool ok = true;
+            for (int y : band) {
+                if (!consistent(grid, y)) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) break;
+        }
+        for (int k = unknown + 1; k <= deepest + 1 && k < kRows; k++)
+            for (int layer = 0; layer < kLayers; layer++)
+                for (int c = 0; c < kUsedCols; c++) grid[layer * kLayerSize + c * kRows + k] = next() % 8;
+    }
+    use(grid);
+    for (int i = 0; i < count; i++) {
+        for (int x = 0; x < kWidth; x++) {
+            double total = 0;
+            for (int layer = 0; layer < kLayers; layer++) total += model_.layer_value(layer, x, first_y + i);
+            int height = model_.height_from_total(total);
+            heights[i * kWidth + x] = static_cast<uint8_t>(height);
+            flags[i * kWidth + x] = model_.flags_for_height(height);
+        }
+    }
+    return true;
+}
+
 int TerrainInference::matching(const Terrain& truth) const {
     int count = 0;
     for (const Grid& grid : hypotheses_) {

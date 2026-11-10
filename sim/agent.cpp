@@ -482,6 +482,7 @@ Agent::Choice Agent::search_mcts(const Game& root, int tick, int budget, double 
         int guess = dice > 0 ? static_cast<int>(iteration % dice) : 0;
         Game game = dice > 0 ? dice_roots[guess] : root;
         if (dice == 0) game.hide(false, true, false, static_cast<uint32_t>(tick) * 2654435761u + draw * 40503u);
+        game.set_forecast_sample(draw);
         iteration++;
 
         int path_node[32];
@@ -972,6 +973,15 @@ void Agent::update_forecast(const Observation& observation, Game& root) {
         if (!inference_->predict(top + 1 + i, forecast_.elevation[i], forecast_.flags[i])) break;
         forecast_.count++;
     }
+    forecast_.samples = 0;
+    if (config_.terrain_samples && forecast_.count > 0) {
+        bool ok = true;
+        for (int s = 0; s < RowForecast::kSamples && ok; s++) {
+            ok = inference_->sample_rows(top + 1, forecast_.count, static_cast<uint32_t>(s),
+                                         &forecast_.sample_elevation[s][0][0], &forecast_.sample_flags[s][0][0]);
+        }
+        if (ok) forecast_.samples = RowForecast::kSamples;
+    }
     root.set_forecast(&forecast_);
 }
 
@@ -991,6 +1001,13 @@ Action Agent::act(const Observation& observation, const Game* truth) {
         root.set_spawn_shield(config_.shield);
     }
     if (config_.terrain_infer) update_forecast(observation, root);
+    if (config_.forecast_truth && truth != nullptr && truth->terrain() != nullptr) {
+        int top = observation.origin_y + kHeight - 1;
+        forecast_.first_y = top + 1;
+        forecast_.count = std::min(config_.forecast_truth, RowForecast::kMax);
+        for (int i = 0; i < RowForecast::kMax; i++) truth->terrain()->row(top + 1 + i, kWidth, forecast_.elevation[i], forecast_.flags[i]);
+        root.set_forecast(&forecast_);
+    }
     if (root.meteor_count() >= kMaxMeteors && root.volcano_count() >= kMaxVolcanoes) return Action{};
 
     if (config_.volcano_plan && root.volcano_count() == 0) {

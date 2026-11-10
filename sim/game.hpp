@@ -80,6 +80,12 @@ struct RowForecast {
     int count = 0;
     uint8_t elevation[kMax][kWidth];
     uint8_t flags[kMax][kWidth];
+    // Optional draws from the inference's posterior, used instead when samples > 0. Each
+    // search iteration takes the one matching its guess at the dice.
+    static constexpr int kSamples = 8;
+    int samples = 0;
+    uint8_t sample_elevation[kSamples][kMax][kWidth];
+    uint8_t sample_flags[kSamples][kMax][kWidth];
 };
 
 class Game {
@@ -117,6 +123,8 @@ public:
     // a dinosaur survives any impact on the tick it spawns.
     void set_spawn_shield(bool on) { spawn_shield_ = on; }
     void set_forecast(const RowForecast* forecast) { forecast_ = forecast; }
+    void set_forecast_sample(uint32_t sample) { forecast_sample_ = static_cast<uint8_t>(sample % RowForecast::kSamples); }
+    const Terrain* terrain() const { return terrain_; }
 
     // Tiles a new wave could spawn on right now.
     int spawn_tiles() const {
@@ -182,6 +190,7 @@ private:
 
     const Terrain* terrain_;
     const RowForecast* forecast_ = nullptr;
+    uint8_t forecast_sample_ = 0;
     Arc4 rng_;
 
     int16_t origin_y_ = 0;

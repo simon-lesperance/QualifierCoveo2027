@@ -81,7 +81,9 @@ struct AgentConfig {
     // instead of assuming each copies the row above. infer_ms caps that work per tick; 0 lets
     // it finish, which keeps tests deterministic.
     bool terrain_infer = false;
-    double infer_ms = 0;     // Share of the best single footprint's points (multiplier included) added to each leaf.
+    int forecast_truth = 0;  // Experiment: this many forecast rows come from the true terrain.
+    double infer_ms = 0;
+    bool terrain_samples = false;  // Each search iteration plays its own draw of the inferred rows.     // Share of the best single footprint's points (multiplier included) added to each leaf.
 
     // With no volcano active, tries every mountain with lava alone, and triggers the one
     // that leaves the smallest spawn area if that is worth at least volcano_threshold.

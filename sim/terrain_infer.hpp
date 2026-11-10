@@ -40,6 +40,10 @@ public:
 
     // Predicted heights and flags of world row y. False if there is no usable inference.
     bool predict(int y, uint8_t* heights, uint8_t* flags);
+    // One draw from the posterior over rows first_y .. first_y + count - 1, consistent across
+    // them: a random hypothesis, gradients for the next unknown lattice row drawn to match the
+    // rows seen, and later unknown ones from the prior. Writes count * 20 heights and flags.
+    bool sample_rows(int first_y, int count, uint32_t seed, uint8_t* heights, uint8_t* flags);
 
 private:
     static constexpr int kWidth = 20;

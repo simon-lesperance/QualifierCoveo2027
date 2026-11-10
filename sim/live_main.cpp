@@ -254,7 +254,9 @@ int main(int argc, char** argv) {
         else if (name == "--wait") wait_percent = value;
         else if (name == "--group-weight") config.group_weight = std::atof(argv[i + 1]);
         else if (name == "--terrain-infer") config.terrain_infer = value != 0;
+        else if (name == "--terrain-samples") config.terrain_samples = value != 0;
         else if (name == "--truth-root") truth_root = value != 0;
+        else if (name == "--forecast-truth") config.forecast_truth = value;
         else if (name == "--infer-ms") config.infer_ms = std::atof(argv[i + 1]);
         else if (name == "--pocket-targets") config.pocket_targets = value;
         else if (name == "--policy-cost") config.policy_cost = value;
