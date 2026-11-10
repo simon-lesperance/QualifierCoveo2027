@@ -464,5 +464,5 @@ confirmations also use sets E (40000+) and F (40360+), outside all training data
 | Horizon 6 | | +468 ±739 | |
 
 With horizon 5 as the base: c20i30 is -647, -402 and +243 on sets D, E and F, and depth 4 is
--1,318 ±690 on set E. Exploration 0.45 is -1,722 ±635 and 0.25 is -131 ±679 on set E.
+-1,318 ±690 on set E. Exploration 0.45 is -1,722 ±635 and 0.25 is -131 ±679 on set E. Widening 1.25 is -1,341 ±713 and 2 is +4 ±716.
 v51 is v50 with horizon 5.
