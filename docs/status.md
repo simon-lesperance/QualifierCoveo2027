@@ -1,12 +1,12 @@
 # Status
 
-Last updated: 2026-11-10, 09:30. This page goes stale fast, so check the date.
+Last updated: 2026-11-10, 17:30. This page goes stale fast, so check the date.
 
 ## Scores
 
 | What | Score | Notes |
 |---|---|---|
-| Best server game | **119,482** | v46, 2026-11-07. The leaderboard keeps the best single game |
+| Best server game | **122,210** | v51, game 27445, 2026-11-10. The leaderboard keeps the best single game |
 | Leaderboard, 2026-11-09 | 204,657, 165,224 | Ranks 1 and 2, unchanged since 2026-11-03 |
 | v51 (server build), simulated | about +5,800 over v47 | v50 +4,764 ±707, then horizon 5 +1,060 ±400 over three seed sets |
 | v47, simulated | 67,812 mean | 2,000 fresh `volcanic_plains` games at budget 8,300, best 135,843 |
@@ -44,13 +44,13 @@ counts volcanic games only.
 | v42 retuned: widening 2, exploration 0.35, value weight 0.4 (v43) | 31 | 58,039 ±1,459 | 80,648 | 4 |
 | v43 with widening 1.5 (v44) | 7 | 61,188 ±3,281 | 74,552 | 1 |
 | v44 with sequential halving over 16 root actions (v45) | 42 | 64,831 ±1,752 | 108,536 | 10 |
-| v45 with common random numbers in the halving (v46) | 82 | 67,999 ±1,337 | **119,482** | 27 |
+| v45 with common random numbers in the halving (v46) | 82 | 67,999 ±1,337 | 119,482 | 27 |
 | v46 with a faster value net, about 14% more search (v47) | 110 | 67,620 ±1,120 | 119,353 | 33 |
 | v47 again, 2026-11-09 | 37 | 67,062 ±1,470 | 89,853 | 10 |
 | v47 with the b20i value net (v48) | 39 | 68,266 ±1,844 | 103,204 | 13 |
 | v47 with the b20i30 value net (v49) | 67 | 68,651 | 104,201 | 4 late ticks |
 | b20i60 value net and sampled terrain rows (v50) | 108 | 70,476 | 117,588 | 7 late ticks |
-| v50 with rollout horizon 5 (v51) | 48 | 70,349 | 109,046 | 2 late ticks |
+| v50 with rollout horizon 5 (v51) | 129 | 70,380 | **122,210** | 6 late ticks |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
@@ -65,7 +65,7 @@ counts volcanic games only.
 - **The gap to 160k-204k is in the plan, not in search or data.** An ablation shows every part of v47 helps, but four times the budget adds only +2,506. The bot kills 97% of what spawns, at 173 points per kill on server seeds, with 67% of points from ticks with 1-2 kills. 204k needs about 500 per kill: ticks of 10-20 kills. On its best local seed v47 averages 118,880 and peaked at 161,788. Server seeds can be replayed with `sim_live --seed-list`. See [notes/research-2026-11.md](notes/research-2026-11.md#good-seeds-and-ablation-2026-11-08).
 - **Tests should play `volcanic_plains` only**, since that's all the bot plays on the server: 180 games with `runs/tests/v1.sh` give a standard error of about 750, against about 1,300 for the 60 per biome used before. At budget 8,300 (about v47's server capacity) none of 20 parameter and bonus changes beat v47. See [notes/research-2026-11.md](notes/research-2026-11.md#night-of-2026-11-08).
 - **Score follows spawn pockets**: across 180 games, the score correlates +0.83 with the share of ticks where the spawn area is at most 60 tiles.
-- **New best: 119,482** (game 25605, v46, 2026-11-07). Before that, 108,536 (game 25374, v45) and 90,528 (game 25058, v40).
+- **New best: 122,210** (game 27445, v51, 2026-11-10), in the fifth v51 batch. Before that, 119,482 (game 25605, v46, 2026-11-07), 108,536 (game 25374, v45) and 90,528 (game 25058, v40).
 - **Common random numbers in the halving: +1,473 ±523** on 180 paired games and **+1,155 ±563** on 180 fresh ones. Each root action's k-th visit replays the same guess at the hidden dice, so the halving compares actions on equal luck. It costs nothing. Tree reuse, fine-tuning ds32 on the search's choices, and a dozen schedule and tuning changes all failed to add to it. See [notes/research-2026-11.md](notes/research-2026-11.md#gumbel-follow-ups-2026-11-07).
 - **Sequential halving at the root: +4,280 ±512** on 180 fresh paired games against v43, or +7,522 ±574 against v37. The root tries the net's top 16 actions and drops the worse half each round, with rounds sized from the previous tick's iteration count. 8 and 32 actions gained less (+1,822 and +1,411), and adding the prior to the halving ranking lost 1,032 ±493.
 - **Depthwise nets and retuning: +3,241 ±554** on 180 fresh paired games against v37 at server costs, with a mean of 57,979 and 22 games at 70k+. The bot now uses one 11,427-parameter depthwise net (`runs/policy/ds32`) at the root and on every depth-1 node, in place of the full net and small16. See [notes/research-2026-11.md](notes/research-2026-11.md).
