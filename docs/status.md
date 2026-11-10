@@ -48,7 +48,7 @@ counts volcanic games only.
 | v46 with a faster value net, about 14% more search (v47) | 110 | 67,620 ±1,120 | 119,353 | 33 |
 | v47 again, 2026-11-09 | 37 | 67,062 ±1,470 | 89,853 | 10 |
 | v47 with the b20i value net (v48) | 39 | 68,266 ±1,844 | 103,204 | 13 |
-| v47 with the b20i30 value net (v49), batch still running | 30 | 68,525 | 89,279 | |
+| v47 with the b20i30 value net (v49) | 67 | 68,651 | 104,201 | 4 late ticks |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.

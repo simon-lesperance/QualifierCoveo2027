@@ -26,7 +26,7 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 | **v46** | Common random numbers in the halving | **119,482** |
 | v47 | Faster value net, about 14% more search | 119,353 |
 | v48 | Bootstrapped value net b20i | 103,204 (39 games) |
-| v49 | Bootstrapped value net b20i30, about +2,570 over v47 in simulation | running |
+| v49 | Bootstrapped value net b20i30, about +2,570 over v47 in simulation | 67 server games, mean 68,651, best 104,201 |
 
 Server scores are noisy: one record game is a decent seed plus a lucky run. Judge versions on paired simulated games.
 
