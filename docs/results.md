@@ -22,8 +22,13 @@ What we've learned, with the evidence. Before trying an idea, check the tables b
 | v11 | Only the three best-flooding volcanoes, gen2 net | 67,855 |
 | v12 | x86-64-v3 library, late-tick fix | 67,461 |
 | v12 + PPO prior (live) | PPO net as a root prior | 77,532 |
+| v45 | Depthwise policy nets, sequential halving at the root | 108,536 |
+| **v46** | Common random numbers in the halving | **119,482** |
+| v47 | Faster value net, about 14% more search | 119,353 |
+| v48 | Bootstrapped value net b20i | 103,204 (39 games) |
+| v49 | Bootstrapped value net b20i30, about +2,570 over v47 in simulation | running |
 
-Server scores are noisy, and 85,231 was a lucky game. On paired simulated games v11 is the strongest version.
+Server scores are noisy: one record game is a decent seed plus a lucky run. Judge versions on paired simulated games.
 
 ## Simulator speed
 
@@ -105,6 +110,7 @@ Live tests use 120 paired games at budget 7,000 against v11 unless noted.
 | Idea | Result |
 |---|---|
 | gen3, gen4 value nets with spawn-area inputs | Lost about 3,000-4,400, for reasons unknown, despite good R² |
+| Value nets fine-tuned from gen2 on bootstrapped targets (b20i, b20i30) | **+1,400 to +2,600**: the first value-net gain since gen2. See status.md |
 | gen5 value nets from 2,000 v47 games, and gen2 retrained on its own data | All lose 1,500-4,800 on 360 fresh games; v47 is tuned around gen2 |
 | Rollouts that fire at groups, group-potential leaf term | Within noise (best +692 ±598 on 360 fresh games) |
 | Value net from foresight rollouts (fg1) | 137,135-149,268 against 164,770 at width 200 |

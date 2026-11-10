@@ -367,3 +367,64 @@ net retraining is not a way forward unless the search is retuned with the new ne
 
 Neither herding terms nor retrained value nets beat v47. Big kills need age-0 dinosaurs in small spawn areas, which the
 bot already exploits close to the limit of what it can see. v47 stays the server build.
+
+## Bootstrapped value nets and terrain inference, 2026-11-09
+
+All tests are paired with v47 at budget 8,300 on `volcanic_plains`, 360 games per row. Seed sets: A = 20000-20359,
+B = 20360-20719, C = 20720-21079, all against `runs/tests/d_v47a`. Nets were picked on A, so B and C are the honest
+checks.
+
+### Bootstrapped value targets
+
+The value net's usual target, points over the next 100 ticks, has sd 3.2k on v47 games, mostly luck at spawn.
+`tools/train_value_boot.py` replaces everything after N ticks with a teacher net's estimate: target = real points over
+N ticks + teacher(position at N) x (100 - N) / 100. With gen2 as teacher and its weights as the starting point:
+
+| Net | Recipe | A | B | C |
+|---|---|---|---|---|
+| b20 | N = 20, from scratch | -311 ±636 | | |
+| b40 | N = 40, from scratch | +434 ±705 | | |
+| b20i (v48) | N = 20, from gen2, 10 epochs | +1,636 ±701 | +1,330 ±601 | +2,041 ±619 |
+| b40i | N = 40, from gen2, 10 epochs | +1,774 ±704 | | |
+| b20i2 / b20i3 | teacher = the previous one, 10 epochs each | +1,876 / +2,780 | +1,406 / | / +2,470 |
+| **b20i30 (v49)** | **N = 20, from gen2, 30 epochs** | **+2,665 ±705** | **+2,122 ±580** | **+3,010 ±650** |
+| b30x2 | teacher and start = b20i30, 30 epochs | +2,890 ±715 | | +2,661 ±648 |
+| b20i60 | N = 20, from gen2, 60 epochs | | +2,962 ±594 | +3,740 ±646 |
+
+- Starting from gen2's weights is what makes this work. Every net trained from scratch, on any target, has lost to gen2,
+  including one on gen2's own data (-2,058). The search's settings are fitted to gen2, and fine-tuning keeps that fit.
+- b20i30 beats b20i on all three sets (+1,029, +792, +969). Another round on top of it (b30x2) doesn't add more
+  (-348 ±634 against b20i30 on C).
+- Same size and speed as gen2, so it costs no search time. Validation R2 on the bootstrapped target is about 0.59;
+  on raw 100-tick returns it is negative because gen2's scale is about 40% below v47's real rate. That doesn't matter
+  for ranking leaves.
+
+### Terrain inference
+
+The terrain is two layers of 2-octave Perlin noise, and both octaves read the same lattice of gradient indices.
+`sim/terrain_infer.cpp` keeps every assignment of gradient indices consistent with the rows seen so far (column by
+column, per layer, then joined exactly) and predicts upcoming rows. Offline over 10 seeds, with the true gradients always
+among the hypotheses:
+
+| Row ahead | Heights right | Copy last row | Flags right | Copy last row |
+|---|---|---|---|---|
+| +1 | 80% | 39% | 97% | 89% |
+| +2 | 65% | 21% | 95% | 85% |
+| +8 | 34% | 12% | 91% | 82% |
+
+Uncertainty right after a lattice line is real: the next lattice row's gradients aren't seen yet. In play:
+
+| Change | Result |
+|---|---|
+| True future rows (`--reveal-rows`, fixed to keep wave planning on) | +1,972 ±674 |
+| Search from the true game, nothing revealed (control) | identical to v47 in 360/360 |
+| True rows for only the next 2 rows (`--forecast-truth 2`) | +1,966 ±674 |
+| Inferred rows, majority, 3 / 8 rows ahead | +61 ±636 / -459 ±684 |
+| Inferred rows, each search iteration plays its own posterior draw | +960 ±679 (gen2, A); over b20i30: +2,513 ±749 (B), +812 ±701 (C) |
+
+All the value of true terrain is in the next two rows, the ones inside the search's reach. A single best guess at
+them is worth nothing; sampling a guess per iteration, as the search already does for the dice, recovers much of it:
+about +1,600 ±510 on top of b20i30 over sets B and C. b20i60 adds about +790 ±450 over b20i30 on the same sets.
+
+The earlier ablation's "true rows -4,914" was an artefact: hiding the waves in the reveal path turned wave planning
+off. With it kept on, true rows are worth about +2,000.
