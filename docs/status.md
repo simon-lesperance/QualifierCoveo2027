@@ -50,7 +50,7 @@ counts volcanic games only.
 | v47 with the b20i value net (v48) | 39 | 68,266 ±1,844 | 103,204 | 13 |
 | v47 with the b20i30 value net (v49) | 67 | 68,651 | 104,201 | 4 late ticks |
 | b20i60 value net and sampled terrain rows (v50) | 108 | 70,476 | 117,588 | 7 late ticks |
-| v50 with rollout horizon 5 (v51), batch running | | | | |
+| v50 with rollout horizon 5 (v51) | 48 | 70,349 | 109,046 | 2 late ticks |
 
 - **The PPO prior helps.** With biomes weighted equally it's +3,526 ±1,447 on the server. The first simulated test charged the net 21% of the budget and found +1,155 ±473. At the server's real capacity, 6,300 ticks per move and 700 for the net, it's **+2,327 ±336** on 360 fresh paired games, with 6 games at 80k+ against 0 and 19 at 70k+ against 7. It gained on all three biomes.
 - **120 ms is too long.** Server stalls run 50-60 ms, so a stall during the search passes the 150 ms limit. At 95 ms, the same stall still arrives in time.
