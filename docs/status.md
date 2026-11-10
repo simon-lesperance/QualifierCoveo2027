@@ -107,6 +107,7 @@ Strongest first. Expected value is judgement, not measurement.
 2. **Start PPO games from foresight positions.** PPO has levelled off near 44,000, and it rarely sees a 9,020-point tick, because it must first build a pocket by chance. Starting some games part-way through foresight plans would show it what pockets are worth. This needs state resets in `sim/vec_env.cpp`.
 3. **Play for high scores.** The leaderboard keeps the best game, but MCTS optimises the mean. Optimistic MCTS (`rich/dev`) is a first step: +1,740 ±781 on 30 simulated games, and no gain on 12 launcher games. Both samples are too small to judge its effect on top scores. Try percentile backups, and measure the rate of 80,000+ games.
 4. **Study the widest plans.** What do the best 100-tick windows of the 207,700 and 229,399 plans do that doesn't rely on knowing the dice? `tools/analyze_plan.py` is a start. Regenerate a plan with the command in [results.md](results.md#foresight-search). Also open: why do most pocket streaks earn 10,000-20,000 when the best earned 63,000?
+5. **Try profile-guided optimization (PGO) for `libsim.so`.** Build with instrumentation, play some games, rebuild with the profile. It often gives 10-20% on branchy code. `-O3` and `-march` gave nothing, but PGO is different. Low priority: twice the budget is worth only about +1,950 (see the ablation). Simon asked for this to be tried later (2026-11-09).
 
 ## Is rank 1 predicting seeds?
 
